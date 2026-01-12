@@ -5,6 +5,8 @@ import {context} from '../models';
 
 export function AddProfile(arg1:string):Promise<string>;
 
+export function CheckAppUpdate():Promise<main.AppUpdateInfo>;
+
 export function CreateSubscription(arg1:string):Promise<string>;
 
 export function DeleteProfile(arg1:string):Promise<Array<main.Profile>>;
@@ -18,6 +20,8 @@ export function EnableAutostart():Promise<void>;
 export function GetLogs():Promise<Array<string>>;
 
 export function GetProfiles():Promise<Array<main.Profile>>;
+
+export function GetRunningProcesses():Promise<Array<string>>;
 
 export function GetRunningState():Promise<boolean>;
 
@@ -34,6 +38,8 @@ export function LoadSettings():Promise<main.Settings>;
 export function LoadSubscriptions():Promise<Array<main.Subscription>>;
 
 export function OnExit():Promise<void>;
+
+export function OpenUrl(arg1:string):Promise<void>;
 
 export function SaveProfiles():Promise<void>;
 

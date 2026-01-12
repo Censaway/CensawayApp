@@ -6,6 +6,10 @@ export function AddProfile(arg1) {
   return window['go']['main']['App']['AddProfile'](arg1);
 }
 
+export function CheckAppUpdate() {
+  return window['go']['main']['App']['CheckAppUpdate']();
+}
+
 export function CreateSubscription(arg1) {
   return window['go']['main']['App']['CreateSubscription'](arg1);
 }
@@ -32,6 +36,10 @@ export function GetLogs() {
 
 export function GetProfiles() {
   return window['go']['main']['App']['GetProfiles']();
+}
+
+export function GetRunningProcesses() {
+  return window['go']['main']['App']['GetRunningProcesses']();
 }
 
 export function GetRunningState() {
@@ -64,6 +72,10 @@ export function LoadSubscriptions() {
 
 export function OnExit() {
   return window['go']['main']['App']['OnExit']();
+}
+
+export function OpenUrl(arg1) {
+  return window['go']['main']['App']['OpenUrl'](arg1);
 }
 
 export function SaveProfiles() {

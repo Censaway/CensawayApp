@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StartVless, StopVless, GetProfiles, DeleteProfile, TcpPing, GetSettings, SaveSettings, GetRunningState, UrlTest, GetLogs } from "../wailsjs/go/main/App";
+import { StartVless, StopVless, GetProfiles, DeleteProfile, TcpPing, GetSettings, SaveSettings, GetRunningState, UrlTest, GetLogs, CheckAppUpdate } from "../wailsjs/go/main/App";
 import { EventsOn, EventsOff, WindowMinimise, Quit, WindowToggleMaximise } from "../wailsjs/runtime/runtime";
 import { main } from "../wailsjs/go/models";
 
@@ -8,9 +8,18 @@ import { Dashboard } from './views/Dashboard';
 import { SettingsView } from './views/Settings';
 import { RoutingView } from './views/Routing';
 import { LogsView } from './views/Logs';
+import { UpdateNotification } from './components/UpdateNotification';
 
 type UIProfile = main.Profile & { latency?: number };
 interface TrafficData { up: number; down: number; }
+
+interface UpdateInfo {
+    available: boolean;
+    version: string;
+    current_ver: string;
+    release_url: string;
+    body: string;
+}
 
 function App() {
     const [view, setView] = useState<"dashboard" | "settings" | "logs" | "routing">("dashboard");
@@ -23,6 +32,9 @@ function App() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [isPinging, setIsPinging] = useState(false);
+    
+    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+    const [showUpdate, setShowUpdate] = useState(false);
 
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -71,6 +83,13 @@ function App() {
         if (oldLogs && oldLogs.length > 0) {
             setLogs(oldLogs.map(stripAnsi));
         }
+
+        CheckAppUpdate().then((info: any) => {
+            if (info && info.available) {
+                setUpdateInfo(info);
+                setShowUpdate(true);
+            }
+        });
 
         await refreshProfiles();
         try {
@@ -170,7 +189,7 @@ function App() {
         <div className="h-screen w-full flex bg-[#09090b] font-sans text-white overflow-hidden relative selection:bg-purple-500/30">
             <Sidebar view={view} setView={setView} />
             <div className="flex-1 flex flex-col relative">
-                <div className="h-10 flex justify-end items-center px-4 gap-3" style={{ "--wails-draggable": "drag" } as React.CSSProperties}>
+                <div className="h-10 flex justify-end items-center px-4 gap-3 bg-[#09090b] z-50 relative" style={{ "--wails-draggable": "drag" } as React.CSSProperties}>
                     <button onClick={WindowMinimise} className="text-gray-500 hover:text-white p-1" style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}><svg className="w-4 h-4" viewBox="0 0 24 24" stroke="currentColor" fill="none"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4"/></svg></button>
                     <button onClick={WindowToggleMaximise} className="text-gray-500 hover:text-white p-1" style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}><svg className="w-3 h-3" viewBox="0 0 24 24" stroke="currentColor" fill="none"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" strokeWidth="2"/></svg></button>
                     <button onClick={Quit} className="text-gray-500 hover:text-red-400 p-1" style={{ "--wails-draggable": "no-drag" } as React.CSSProperties}><svg className="w-4 h-4" viewBox="0 0 24 24" stroke="currentColor" fill="none"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>
@@ -208,6 +227,13 @@ function App() {
                     )}
                     {view === "logs" && <LogsView logs={logs} onClear={() => setLogs([])} />}
                 </div>
+
+                <UpdateNotification 
+                    visible={showUpdate && !!updateInfo?.available} 
+                    version={updateInfo?.version || ""} 
+                    url={updateInfo?.release_url || ""} 
+                    onClose={() => setShowUpdate(false)}
+                />
             </div>
         </div>
     )

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { main } from "../../wailsjs/go/models";
 import { CustomSelect } from '../components/CustomSelect';
 import { RestartBanner } from '../components/RestartBanner';
+import { ProcessSelectorModal } from '../components/ProcessSelectorModal';
 
 interface Props {
     settings: main.Settings;
@@ -14,6 +15,7 @@ interface Props {
 export const RoutingView: React.FC<Props> = ({ settings, onUpdate, hasChanges, isRunning, onRestart }) => {
     const [newRule, setNewRule] = useState<main.UserRule>(new main.UserRule({ id: "", type: "domain", value: "", outbound: "direct" }));
     const [ruDomainsText, setRuDomainsText] = useState("");
+    const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
 
     useEffect(() => {
         if (settings.ru_domains) {
@@ -39,19 +41,51 @@ export const RoutingView: React.FC<Props> = ({ settings, onUpdate, hasChanges, i
         onUpdate(new main.Settings({ ...settings, ru_domains: domains }));
     };
 
+    const getPlaceholder = () => {
+        switch(newRule.type) {
+            case "ip": return "1.1.1.1/32";
+            case "process": return "chrome.exe";
+            default: return "example.com";
+        }
+    };
+
+    const ruleTypes = [
+        { value: "domain", label: "Domain" },
+        { value: "ip", label: "IP CIDR" },
+        { value: "process", label: "Process" }
+    ];
+
     return (
         <div className="w-full max-w-4xl animate-[fadeIn_0.3s_ease-out] flex gap-6 h-[520px]">
             
             <div className="glass flex-1 rounded-3xl p-8 border-t border-white/10 flex flex-col">
                 <div className="flex justify-between items-end mb-6">
-                    <div><h2 className="text-xl font-bold text-white tracking-tight">Custom Rules</h2><p className="text-[10px] text-gray-500 mt-1 font-mono">Override routing for domains/IPs</p></div>
+                    <div><h2 className="text-xl font-bold text-white tracking-tight">Custom Rules</h2><p className="text-[10px] text-gray-500 mt-1 font-mono">Override routing for domains/IPs/Apps</p></div>
                     <div className="text-[9px] text-gray-600 bg-white/5 px-2 py-1 rounded border border-white/5">PRIORITY: HIGH</div>
                 </div>
 
                 
                 <div className="flex items-center gap-3 mb-6 p-1 z-20 relative">
-                    <CustomSelect value={newRule.type} onChange={(v) => setNewRule(new main.UserRule({...newRule, type: v}))} options={[{ value: "domain", label: "Domain" }, { value: "ip", label: "IP CIDR" }]} />
-                    <input type="text" placeholder={newRule.type === "domain" ? "example.com" : "1.1.1.1/32"} value={newRule.value} onChange={(e) => setNewRule(new main.UserRule({...newRule, value: e.target.value}))} className="h-10 flex-1 bg-[#0a0a0e] border border-white/10 hover:border-purple-500/50 rounded-lg px-4 text-xs text-white placeholder:text-gray-600 outline-none focus:border-purple-500 focus:bg-[#121216] transition-all font-mono shadow-sm" />
+                    <CustomSelect value={newRule.type} onChange={(v) => setNewRule(new main.UserRule({...newRule, type: v}))} options={ruleTypes} />
+                    
+                    <div className="flex-1 relative flex items-center">
+                        <input 
+                            type="text" 
+                            placeholder={getPlaceholder()} 
+                            value={newRule.value} 
+                            onChange={(e) => setNewRule(new main.UserRule({...newRule, value: e.target.value}))} 
+                            className="w-full h-10 bg-[#0a0a0e] border border-white/10 hover:border-purple-500/50 rounded-lg px-4 text-xs text-white placeholder:text-gray-600 outline-none focus:border-purple-500 focus:bg-[#121216] transition-all font-mono shadow-sm" 
+                        />
+                        {newRule.type === "process" && (
+                            <button 
+                                onClick={() => setIsProcessModalOpen(true)}
+                                className="absolute right-1 top-1 bottom-1 px-3 bg-white/10 hover:bg-white/20 text-[9px] font-bold text-gray-300 rounded-md transition-colors"
+                            >
+                                LIST
+                            </button>
+                        )}
+                    </div>
+
                     <CustomSelect value={newRule.outbound} onChange={(v) => setNewRule(new main.UserRule({...newRule, outbound: v}))} options={[{ value: "direct", label: "Direct", color: "text-emerald-400" }, { value: "proxy", label: "Proxy", color: "text-purple-400" }, { value: "block", label: "Block", color: "text-red-400" }]} />
                     <button onClick={addRule} disabled={!newRule.value} className="h-10 w-10 shrink-0 flex items-center justify-center bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:shadow-[0_0_25px_rgba(168,85,247,0.5)] active:scale-95"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg></button>
                 </div>
@@ -83,6 +117,12 @@ export const RoutingView: React.FC<Props> = ({ settings, onUpdate, hasChanges, i
                 </div>
                 <button onClick={saveRuDomains} className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-bold py-2 rounded-lg transition-all active:scale-95">SAVE LIST</button>
             </div>
+
+            <ProcessSelectorModal 
+                isOpen={isProcessModalOpen}
+                onClose={() => setIsProcessModalOpen(false)}
+                onSelect={(name) => setNewRule(new main.UserRule({...newRule, value: name}))}
+            />
         </div>
     );
 };

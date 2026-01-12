@@ -1,5 +1,27 @@
 export namespace main {
 	
+	export class AppUpdateInfo {
+	    available: boolean;
+	    version: string;
+	    current_ver: string;
+	    release_url: string;
+	    download_url: string;
+	    body: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppUpdateInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.version = source["version"];
+	        this.current_ver = source["current_ver"];
+	        this.release_url = source["release_url"];
+	        this.download_url = source["download_url"];
+	        this.body = source["body"];
+	    }
+	}
 	export class Profile {
 	    id: string;
 	    name: string;

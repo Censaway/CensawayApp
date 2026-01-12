@@ -165,8 +165,10 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 
 		if ur.Type == "domain" {
 			r["domain_suffix"] = []string{ur.Value}
-		} else {
+		} else if ur.Type == "ip" {
 			r["ip_cidr"] = []string{ur.Value}
+		} else if ur.Type == "process" {
+			r["process_name"] = []string{ur.Value}
 		}
 		rules = append(rules, r)
 	}
@@ -219,6 +221,15 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 		"outbound": "direct",
 	})
 
+	dnsRules := []map[string]interface{}{}
+	
+	if a.Settings.RoutingMode == "smart" {
+		dnsRules = append(dnsRules, map[string]interface{}{
+			"domain_suffix": a.Settings.RuDomains,
+			"server":        "local_dns",
+		})
+	}
+
 	dnsConfig := map[string]interface{}{
 		"servers": []map[string]interface{}{
 			{
@@ -232,9 +243,7 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 				"type": "local",
 			},
 		},
-		"rules": []map[string]interface{}{
-			{"domain_suffix": a.Settings.RuDomains, "server": "local_dns"},
-		},
+		"rules":    dnsRules,
 		"final":    "remote_dns",
 		"strategy": "ipv4_only",
 	}
