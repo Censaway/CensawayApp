@@ -37,8 +37,6 @@ export function LoadSettings():Promise<main.Settings>;
 
 export function LoadSubscriptions():Promise<Array<main.Subscription>>;
 
-export function OnExit():Promise<void>;
-
 export function OpenUrl(arg1:string):Promise<void>;
 
 export function SaveProfiles():Promise<void>;

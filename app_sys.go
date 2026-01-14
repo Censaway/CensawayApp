@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -32,15 +33,26 @@ func (a *App) GetRunningProcesses() []string {
 			}
 		}
 	} else {
-		cmd := exec.Command("ps", "-e", "-o", "comm=")
+		args := []string{"-e", "-o", "comm="}
+		if runtime.GOOS == "darwin" {
+			args = []string{"-A", "-o", "comm="}
+		}
+
+		cmd := exec.Command("ps", args...)
 		a.configureCmd(cmd)
 		
 		output, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(string(output), "\n")
 			for _, line := range lines {
-				name := strings.TrimSpace(line)
-				if name != "" && !isSystemProcess(name) {
+				rawName := strings.TrimSpace(line)
+				if rawName == "" {
+					continue
+				}
+
+				name := filepath.Base(rawName)
+
+				if !isSystemProcess(name) {
 					processes[name] = struct{}{}
 				}
 			}
@@ -57,7 +69,18 @@ func (a *App) GetRunningProcesses() []string {
 
 func isSystemProcess(name string) bool {
 	lower := strings.ToLower(name)
-	
+
+	if runtime.GOOS == "darwin" {
+		if strings.Contains(lower, "helper") || 
+		   strings.Contains(lower, "renderer") || 
+		   strings.Contains(lower, "gpu") || 
+		   strings.Contains(lower, "plugin") ||
+		   strings.Contains(lower, "xpc") ||
+		   strings.Contains(lower, "service") {
+			return true
+		}
+	}
+
 	windowsSys := []string{
 		"system", "system idle process", "registry", "memcompression",
 		"smss.exe", "csrss.exe", "wininit.exe", "services.exe", "lsass.exe",
@@ -79,14 +102,20 @@ func isSystemProcess(name string) bool {
 		if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
 			return true
 		}
+
 		linuxSys := []string{
+			"launchd", "kernel_task", "logd", "userEventAgent", "distnoted",
+			"cfprefsd", "xpcproxy", "tccd", "com.apple", "mds", "mds_stores",
+			"nsurlsessiond", "syslogd", "systemstats", "configd", "powerd",
+			"lsd", "pkd", "secinitd", "trustd", "fseventsd", "diskarbitrationd",
 			"systemd", "kthreadd", "rcu_sched", "rcu_bh", "migration",
 			"watchdog", "ksoftirqd", "kworker", "dbus-daemon", "networkmanager",
 			"polkitd", "wpa_supplicant", "avahi-daemon", "systemd-journal",
-			"systemd-udevd", "systemd-logind", "systemd-resolv",
+			"systemd-udevd", "systemd-logind", "systemd-resolv", "zsh", "bash", "sh",
+			"login",
 		}
 		for _, sys := range linuxSys {
-			if strings.HasPrefix(lower, sys) {
+			if strings.EqualFold(lower, sys) || strings.HasPrefix(lower, sys) {
 				return true
 			}
 		}

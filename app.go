@@ -15,7 +15,7 @@ import (
 //go:embed dll/wintun.dll
 var wintunDll []byte
 
-const AppVersion = "v1.1.0"
+const AppVersion = "v1.1.1"
 
 type Subscription struct {
 	ID        string `json:"id"`

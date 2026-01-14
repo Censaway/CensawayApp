@@ -1,4 +1,4 @@
-//go:build !linux && !windows
+//go:build !linux && !windows && !darwin
 
 package main
 
@@ -29,4 +29,7 @@ func (a *App) SetupTray(ctx context.Context) {
 }
 
 func (a *App) updateTrayState(connected bool) {
+}
+
+func (a *App) OnExit() {
 }

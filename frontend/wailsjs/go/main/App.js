@@ -70,10 +70,6 @@ export function LoadSubscriptions() {
   return window['go']['main']['App']['LoadSubscriptions']();
 }
 
-export function OnExit() {
-  return window['go']['main']['App']['OnExit']();
-}
-
 export function OpenUrl(arg1) {
   return window['go']['main']['App']['OpenUrl'](arg1);
 }

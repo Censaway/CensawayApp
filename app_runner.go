@@ -107,8 +107,26 @@ func (a *App) StartVless(vlessLink string) string {
 			text := scanner.Text()
 			a.log(text)
 
-			if strings.Contains(text, "FATAL") || strings.Contains(text, "panic") {
-				wailsRuntime.EventsEmit(a.ctx, "error", "Core Error: "+text)
+			upper := strings.ToUpper(text)
+
+			if strings.Contains(upper, "FATAL") || 
+			   strings.Contains(upper, "PANIC") ||
+			   strings.Contains(upper, "LEVEL=ERROR") || 
+			   strings.Contains(upper, "NO ROUTE") ||    
+			   strings.Contains(upper, "UNREACHABLE") || 
+			   strings.Contains(upper, "REFUSED") ||
+			   strings.Contains(upper, "REALITY VERIFICATION FAILED") {      
+				
+				msg := text
+				if idx := strings.Index(msg, "msg="); idx != -1 {
+					msg = msg[idx+4:]
+					msg = strings.Trim(msg, "\"")
+				}
+				if strings.Contains(upper, "REALITY VERIFICATION FAILED") {
+					msg = "Reality handshake failed (check keys/sni)"
+				}
+
+				wailsRuntime.EventsEmit(a.ctx, "error", "Error: "+msg)
 			}
 		}
 

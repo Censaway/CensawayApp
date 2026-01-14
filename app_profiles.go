@@ -121,10 +121,20 @@ func (a *App) TcpPing(profileID string) int {
 	host := u.Hostname()
 	target := net.JoinHostPort(host, port)
 
+	var conn net.Conn
+	var dialErr error
 	start := time.Now()
-	conn, err := net.DialTimeout("tcp", target, 3*time.Second)
-	if err != nil {
-		wailsRuntime.EventsEmit(a.ctx, "log", fmt.Sprintf("Ping: Connection failed to %s: %v", target, err))
+
+	for i := 0; i < 2; i++ {
+		conn, dialErr = net.DialTimeout("tcp", target, 3*time.Second)
+		if dialErr == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if dialErr != nil {
+		wailsRuntime.EventsEmit(a.ctx, "log", fmt.Sprintf("Ping: Connection failed to %s: %v", target, dialErr))
 		return -1
 	}
 	conn.Close()
