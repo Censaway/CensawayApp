@@ -6,6 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (a *App) configureCmd(cmd *exec.Cmd) {
@@ -88,4 +91,22 @@ StartupWMClass=CensawayApp
 
 func (a *App) cleanupZombies() {
 	exec.Command("pkill", "sing-box").Run()
+}
+
+func (a *App) ensurePermissions(binPath string) error {
+	checkCmd := exec.Command("getcap", binPath)
+	out, _ := checkCmd.CombinedOutput()
+	if strings.Contains(string(out), "cap_net_admin") {
+		return nil
+	}
+
+	if a.ctx != nil {
+		wailsRuntime.EventsEmit(a.ctx, "log", "Requesting admin rights (pkexec)...")
+	}
+
+	err := exec.Command("pkexec", "setcap", "cap_net_admin,cap_net_bind_service=+ep", binPath).Run()
+	if err != nil {
+		return exec.Command("sudo", "setcap", "cap_net_admin,cap_net_bind_service=+ep", binPath).Run()
+	}
+	return nil
 }

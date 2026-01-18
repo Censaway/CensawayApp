@@ -4,11 +4,13 @@ import (
 	"context"
 	"embed"
 	"flag"
+	_ "image/png"
 	"log"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -47,8 +49,24 @@ func main() {
 		},
 		Frameless:       true,
 		CSSDragProperty: "--wails-draggable",
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "e4b6c3a2-1111-4b5c-9999-censaway-app-v1",
+			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
+				if app.ctx != nil {
+					runtime.WindowUnminimise(app.ctx)
+					runtime.WindowShow(app.ctx)
+					runtime.WindowSetAlwaysOnTop(app.ctx, true)
+					runtime.WindowSetAlwaysOnTop(app.ctx, false)
+				}
+			},
+		},
 		Bind: []interface{}{
 			app,
+		},
+		Windows: &windows.Options{
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
+			BackdropType:         windows.Mica,
 		},
 	})
 

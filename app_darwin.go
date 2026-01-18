@@ -4,10 +4,13 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"text/template"
+	
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (a *App) configureCmd(cmd *exec.Cmd) {
@@ -79,4 +82,28 @@ func (a *App) DisableAutostart() error {
 		return err
 	}
 	return os.Remove(plistPath)
+}
+
+func (a *App) ensurePermissions(binPath string) error {
+	exec.Command("xattr", "-d", "com.apple.quarantine", binPath).Run()
+
+	info, err := os.Stat(binPath)
+	if err == nil {
+		if (info.Mode() & os.ModeSetuid) != 0 {
+			return nil
+		}
+	}
+
+	if a.ctx != nil {
+		wailsRuntime.EventsEmit(a.ctx, "log", "Requesting admin rights (osascript)...")
+	}
+
+	cmdStr := fmt.Sprintf("chown root:admin \\\"%s\\\" && chmod +s \\\"%s\\\"", binPath, binPath)
+	script := fmt.Sprintf("do shell script \"%s\" with administrator privileges", cmdStr)
+
+	err = exec.Command("osascript", "-e", script).Run()
+	if err != nil {
+		return fmt.Errorf("failed to set SUID: %v", err)
+	}
+	return nil
 }

@@ -17,9 +17,13 @@ export function DisableAutostart():Promise<void>;
 
 export function EnableAutostart():Promise<void>;
 
+export function GetAppVersion():Promise<string>;
+
 export function GetLogs():Promise<Array<string>>;
 
 export function GetProfiles():Promise<Array<main.Profile>>;
+
+export function GetProxyIP():Promise<string>;
 
 export function GetRunningProcesses():Promise<Array<string>>;
 
@@ -46,6 +50,8 @@ export function SaveSettings(arg1:main.Settings):Promise<string>;
 export function SaveSubscriptions():Promise<void>;
 
 export function SetupTray(arg1:context.Context):Promise<void>;
+
+export function StartUpdateTicker():Promise<void>;
 
 export function StartVless(arg1:string):Promise<string>;
 

@@ -33,3 +33,7 @@ func (a *App) updateTrayState(connected bool) {
 
 func (a *App) OnExit() {
 }
+
+func (a *App) ensurePermissions(binPath string) error {
+	return nil
+}

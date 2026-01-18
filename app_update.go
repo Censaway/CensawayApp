@@ -22,6 +22,17 @@ type AppUpdateInfo struct {
 
 const UpdateRepo = "Censaway/CensawayApp"
 
+func (a *App) StartUpdateTicker() {
+	go func() {
+		for {
+			time.Sleep(1 * time.Hour)
+			if info := a.CheckAppUpdate(); info.Available {
+				wailsRuntime.EventsEmit(a.ctx, "update_available", info)
+			}
+		}
+	}()
+}
+
 func (a *App) CheckAppUpdate() AppUpdateInfo {
 	client := &http.Client{Timeout: 10 * time.Second}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", UpdateRepo)

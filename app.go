@@ -3,9 +3,14 @@ package main
 import (
 	"context"
 	_ "embed"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +20,7 @@ import (
 //go:embed dll/wintun.dll
 var wintunDll []byte
 
-const AppVersion = "v1.1.1"
+const AppVersion = "v1.2.0"
 
 type Subscription struct {
 	ID        string `json:"id"`
@@ -134,6 +139,8 @@ func (a *App) startup(ctx context.Context) {
 			}
 		}
 	}()
+
+	a.StartUpdateTicker()
 }
 
 func (a *App) connectLastProfile() {
@@ -154,6 +161,25 @@ func (a *App) connectLastProfile() {
 	}
 }
 
+func (a *App) GetProxyIP() string {
+	proxyUrl, _ := url.Parse(fmt.Sprintf("socks5://127.0.0.1:%d", a.Settings.MixedPort))
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyUrl),
+		},
+		Timeout: 5 * time.Second,
+	}
+
+	resp, err := client.Get("http://checkip.amazonaws.com")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	return strings.TrimSpace(string(body))
+}
+
 func (a *App) getAppDataDir() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -171,3 +197,4 @@ func (a *App) getProfilesPath() string { return filepath.Join(a.getAppDataDir(),
 func (a *App) getSettingsPath() string { return filepath.Join(a.getAppDataDir(), "settings.json") }
 func (a *App) getGeoIpPath() string    { return filepath.Join(a.getAppDataDir(), "geoip.dat") }
 func (a *App) getSrsPath() string      { return filepath.Join(a.getAppDataDir(), "geoip-ru.srs") }
+func (a *App) GetAppVersion() string   { return AppVersion }

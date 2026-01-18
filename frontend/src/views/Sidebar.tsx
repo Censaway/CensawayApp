@@ -1,8 +1,9 @@
 import React from 'react';
+import { useAppStore } from '../store/appStore';
 
-interface Props { view: string; setView: (v: any) => void; }
+export const Sidebar: React.FC = () => {
+    const { view, setView } = useAppStore();
 
-export const Sidebar: React.FC<Props> = ({ view, setView }) => {
     return (
         <div className="w-20 glass h-full border-r border-white/5 flex flex-col items-center py-6 z-50 shrink-0" style={{ "--wails-draggable": "drag" } as React.CSSProperties}>
             <div className="mb-10 w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]"></div>

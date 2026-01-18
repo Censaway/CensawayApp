@@ -30,12 +30,20 @@ export function EnableAutostart() {
   return window['go']['main']['App']['EnableAutostart']();
 }
 
+export function GetAppVersion() {
+  return window['go']['main']['App']['GetAppVersion']();
+}
+
 export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
 }
 
 export function GetProfiles() {
   return window['go']['main']['App']['GetProfiles']();
+}
+
+export function GetProxyIP() {
+  return window['go']['main']['App']['GetProxyIP']();
 }
 
 export function GetRunningProcesses() {
@@ -88,6 +96,10 @@ export function SaveSubscriptions() {
 
 export function SetupTray(arg1) {
   return window['go']['main']['App']['SetupTray'](arg1);
+}
+
+export function StartUpdateTicker() {
+  return window['go']['main']['App']['StartUpdateTicker']();
 }
 
 export function StartVless(arg1) {

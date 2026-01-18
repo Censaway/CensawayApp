@@ -64,7 +64,7 @@ func (a *App) StartVless(vlessLink string) string {
 	if a.Settings.RunMode == "tun" {
 		if err := a.ensurePermissions(binPath); err != nil {
 			a.log("Error: Admin permissions required for TUN mode")
-			return "Permission denied"
+			return "Permission denied (Run as Admin)"
 		}
 	}
 
@@ -103,6 +103,9 @@ func (a *App) StartVless(vlessLink string) string {
 	go func() {
 		defer logWg.Done()
 		scanner := bufio.NewScanner(stderr)
+		buf := make([]byte, 0, 64*1024)
+		scanner.Buffer(buf, 1024*1024)
+
 		for scanner.Scan() {
 			text := scanner.Text()
 			a.log(text)

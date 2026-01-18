@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -295,52 +294,6 @@ func untar(src, dest string) error {
 			outFile.Close()
 			os.Chmod(target, os.FileMode(header.Mode))
 		}
-	}
-	return nil
-}
-
-func (a *App) ensurePermissions(binPath string) error {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-
-	if runtime.GOOS == "darwin" {
-		exec.Command("xattr", "-d", "com.apple.quarantine", binPath).Run()
-
-		info, err := os.Stat(binPath)
-		if err == nil {
-			if (info.Mode() & os.ModeSetuid) != 0 {
-				return nil
-			}
-		}
-
-		if a.ctx != nil {
-			wailsRuntime.EventsEmit(a.ctx, "log", "Requesting admin rights (osascript)...")
-		}
-
-		cmdStr := fmt.Sprintf("chown root:admin \\\"%s\\\" && chmod +s \\\"%s\\\"", binPath, binPath)
-		script := fmt.Sprintf("do shell script \"%s\" with administrator privileges", cmdStr)
-
-		err = exec.Command("osascript", "-e", script).Run()
-		if err != nil {
-			return fmt.Errorf("failed to set SUID: %v", err)
-		}
-		return nil
-	}
-
-	checkCmd := exec.Command("getcap", binPath)
-	out, _ := checkCmd.CombinedOutput()
-	if strings.Contains(string(out), "cap_net_admin") {
-		return nil
-	}
-
-	if a.ctx != nil {
-		wailsRuntime.EventsEmit(a.ctx, "log", "Requesting admin rights (pkexec)...")
-	}
-
-	err := exec.Command("pkexec", "setcap", "cap_net_admin,cap_net_bind_service=+ep", binPath).Run()
-	if err != nil {
-		return exec.Command("sudo", "setcap", "cap_net_admin,cap_net_bind_service=+ep", binPath).Run()
 	}
 	return nil
 }

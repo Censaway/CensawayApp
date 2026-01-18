@@ -6,7 +6,7 @@ import (
 	"context"
 	_ "embed"
 
-	"github.com/getlantern/systray"
+	"github.com/energye/systray"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -19,7 +19,8 @@ var (
 )
 
 func (a *App) SetupTray(ctx context.Context) {
-	go systray.Run(func() { a.onTrayReady(ctx) }, a.onTrayExit)
+	start, _ := systray.RunWithExternalLoop(func() { a.onTrayReady(ctx) }, a.onTrayExit)
+	go start()
 }
 
 func (a *App) onTrayReady(ctx context.Context) {
@@ -43,10 +44,24 @@ func (a *App) onTrayReady(ctx context.Context) {
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "Exit app")
 
+	chanConnect := make(chan struct{})
+	chanShow := make(chan struct{})
+	chanQuit := make(chan struct{})
+
+	mConnect.Click(func() {
+		go func() { chanConnect <- struct{}{} }()
+	})
+	mShow.Click(func() {
+		go func() { chanShow <- struct{}{} }()
+	})
+	mQuit.Click(func() {
+		go func() { chanQuit <- struct{}{} }()
+	})
+
 	go func() {
 		for {
 			select {
-			case <-mConnect.ClickedCh:
+			case <-chanConnect:
 				if a.GetRunningState() {
 					a.StopVless()
 				} else {
@@ -56,10 +71,10 @@ func (a *App) onTrayReady(ctx context.Context) {
 						wailsRuntime.WindowShow(ctx)
 					}
 				}
-			case <-mShow.ClickedCh:
+			case <-chanShow:
 				wailsRuntime.WindowShow(ctx)
 				wailsRuntime.WindowUnminimise(ctx)
-			case <-mQuit.ClickedCh:
+			case <-chanQuit:
 				a.isQuitting = true
 				a.StopVless()
 				a.shutdownWg.Wait()

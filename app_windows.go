@@ -3,10 +3,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -53,4 +55,33 @@ func (a *App) cleanupZombies() {
 		CreationFlags: 0x08000000,
 	}
 	_ = cmd.Run()
+}
+
+func (a *App) ensurePermissions(binPath string) error {
+	if !a.checkAdmin() {
+		return fmt.Errorf("please restart app as Administrator for TUN mode")
+	}
+	return nil
+}
+
+func (a *App) checkAdmin() bool {
+	var sid *windows.SID
+	err := windows.AllocateAndInitializeSid(
+		&windows.SECURITY_NT_AUTHORITY,
+		2,
+		windows.SECURITY_BUILTIN_DOMAIN_RID,
+		windows.DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&sid)
+	if err != nil {
+		return false
+	}
+	defer windows.FreeSid(sid)
+
+	token := windows.Token(0)
+	member, err := token.IsMember(sid)
+	if err != nil {
+		return false
+	}
+	return member
 }
