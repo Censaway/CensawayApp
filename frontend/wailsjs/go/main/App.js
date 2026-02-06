@@ -10,8 +10,16 @@ export function CheckAppUpdate() {
   return window['go']['main']['App']['CheckAppUpdate']();
 }
 
+export function CreateMixedProfile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateMixedProfile'](arg1, arg2, arg3);
+}
+
 export function CreateSubscription(arg1) {
   return window['go']['main']['App']['CreateSubscription'](arg1);
+}
+
+export function DeleteMixedProfile(arg1) {
+  return window['go']['main']['App']['DeleteMixedProfile'](arg1);
 }
 
 export function DeleteProfile(arg1) {
@@ -36,6 +44,10 @@ export function GetAppVersion() {
 
 export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
+}
+
+export function GetMixedProfiles() {
+  return window['go']['main']['App']['GetMixedProfiles']();
 }
 
 export function GetProfiles() {
@@ -66,6 +78,10 @@ export function ImportSubscription(arg1) {
   return window['go']['main']['App']['ImportSubscription'](arg1);
 }
 
+export function LoadMixedProfiles() {
+  return window['go']['main']['App']['LoadMixedProfiles']();
+}
+
 export function LoadProfiles() {
   return window['go']['main']['App']['LoadProfiles']();
 }
@@ -80,6 +96,10 @@ export function LoadSubscriptions() {
 
 export function OpenUrl(arg1) {
   return window['go']['main']['App']['OpenUrl'](arg1);
+}
+
+export function SaveMixedProfiles() {
+  return window['go']['main']['App']['SaveMixedProfiles']();
 }
 
 export function SaveProfiles() {
@@ -112,6 +132,10 @@ export function StopVless() {
 
 export function TcpPing(arg1) {
   return window['go']['main']['App']['TcpPing'](arg1);
+}
+
+export function UpdateMixedProfile(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateMixedProfile'](arg1, arg2, arg3, arg4);
 }
 
 export function UpdateProfile(arg1, arg2, arg3) {

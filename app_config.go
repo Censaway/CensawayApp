@@ -3,16 +3,208 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/url"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
-func (a *App) generateConfig(vlessLink string) (string, error) {
-	u, err := url.Parse(vlessLink)
+func (a *App) generateConfig(linkOrMixId string) (string, error) {
+	outbounds := []map[string]interface{}{}
+	
+	if strings.HasPrefix(linkOrMixId, "mixed://") {
+		mixedID := strings.TrimPrefix(linkOrMixId, "mixed://")
+		var targetMix *MixedProfile
+		for _, m := range a.MixedProfiles {
+			if m.ID == mixedID {
+				targetMix = &m
+				break
+			}
+		}
+		if targetMix == nil {
+			return "", fmt.Errorf("mixed profile not found")
+		}
+
+		var relayKey, exitKey string
+		
+		for _, p := range a.Profiles {
+			if p.ID == targetMix.RelayID {
+				relayKey = p.Key
+			}
+			if p.ID == targetMix.ExitID {
+				exitKey = p.Key
+			}
+		}
+
+		if relayKey == "" || exitKey == "" {
+			return "", fmt.Errorf("one of chain profiles not found")
+		}
+
+		relayOutbound, err := a.parseVlessToOutbound(relayKey, "inter-node")
+		if err != nil {
+			return "", fmt.Errorf("relay config error: %v", err)
+		}
+		outbounds = append(outbounds, relayOutbound)
+
+		exitOutbound, err := a.parseVlessToOutbound(exitKey, "proxy")
+		if err != nil {
+			return "", fmt.Errorf("exit config error: %v", err)
+		}
+		exitOutbound["detour"] = "inter-node"
+		outbounds = append(outbounds, exitOutbound)
+
+	} else {
+		ob, err := a.parseVlessToOutbound(linkOrMixId, "proxy")
+		if err != nil {
+			return "", err
+		}
+		outbounds = append(outbounds, ob)
+	}
+
+	outbounds = append(outbounds, map[string]interface{}{"type": "direct", "tag": "direct"})
+
+	inbounds := []map[string]interface{}{}
+	inbounds = append(inbounds, map[string]interface{}{
+		"type":        "mixed",
+		"tag":         "mixed-in",
+		"listen":      "127.0.0.1",
+		"listen_port": a.Settings.MixedPort,
+		"sniff":       true,
+	})
+
+	if a.Settings.RunMode == "tun" {
+		tunConfig := map[string]interface{}{
+			"type":                       "tun",
+			"tag":                        "tun-in",
+			"address":                    []string{"172.19.0.1/30"},
+			"mtu":                        9000,
+			"auto_route":                 true,
+			"strict_route":               true,
+			"stack":                      "system",
+			"sniff":                      true,
+			"sniff_override_destination": true,
+		}
+		if runtime.GOOS == "linux" {
+			tunConfig["interface_name"] = "tun0"
+		}
+		inbounds = append(inbounds, tunConfig)
+	}
+
+	ruleSets := []map[string]interface{}{}
+	if a.Settings.RoutingMode == "smart" {
+		ruleSets = append(ruleSets, map[string]interface{}{
+			"tag":             "geoip-ru",
+			"type":            "remote",
+			"format":          "binary",
+			"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
+			"download_detour": "proxy",
+		})
+	}
+
+	rules := []map[string]interface{}{}
+	rules = append(rules, map[string]interface{}{"protocol": "dns", "action": "hijack-dns"})
+
+	if a.Settings.RunMode == "tun" {
+		rules = append(rules, map[string]interface{}{"inbound": "tun-in", "action": "sniff"})
+	}
+
+	for _, ur := range a.Settings.UserRules {
+		r := map[string]interface{}{}
+		if ur.Outbound == "block" {
+			r["action"] = "reject"
+		} else {
+			r["action"] = "route"
+			r["outbound"] = ur.Outbound
+		}
+		if ur.Type == "domain" {
+			r["domain_suffix"] = []string{ur.Value}
+		} else if ur.Type == "ip" {
+			r["ip_cidr"] = []string{ur.Value}
+		} else if ur.Type == "process" {
+			r["process_name"] = []string{ur.Value}
+		}
+		rules = append(rules, r)
+	}
+
+	rules = append(rules, map[string]interface{}{
+		"ip_is_private": true,
+		"action":        "route",
+		"outbound":      "direct",
+	})
+
+	if a.Settings.RoutingMode == "smart" {
+		if len(a.Settings.RuDomains) > 0 {
+			rules = append(rules, map[string]interface{}{
+				"domain_suffix": a.Settings.RuDomains,
+				"action":        "route",
+				"outbound":      "direct",
+			})
+		}
+		rules = append(rules, map[string]interface{}{
+			"rule_set": "geoip-ru",
+			"action":   "route",
+			"outbound": "direct",
+		})
+	}
+
+	rules = append(rules, map[string]interface{}{
+		"ip_cidr":  []string{"8.8.8.8/32", "1.1.1.1/32"},
+		"action":   "route",
+		"outbound": "direct",
+	})
+	rules = append(rules, map[string]interface{}{
+		"inbound":  "clash-api",
+		"action":   "route",
+		"outbound": "direct",
+	})
+
+	dnsRules := []map[string]interface{}{}
+	if a.Settings.RoutingMode == "smart" {
+		dnsRules = append(dnsRules, map[string]interface{}{
+			"domain_suffix": a.Settings.RuDomains,
+			"server":        "local_dns",
+		})
+	}
+
+	dnsConfig := map[string]interface{}{
+		"servers": []map[string]interface{}{
+			{"tag": "remote_dns", "type": "udp", "server": "8.8.8.8", "detour": "proxy"},
+			{"tag": "local_dns", "type": "local"},
+		},
+		"rules":    dnsRules,
+		"final":    "remote_dns",
+		"strategy": "ipv4_only",
+	}
+
+	fullConfig := map[string]interface{}{
+		"log": map[string]interface{}{"level": "info", "timestamp": true},
+		"experimental": map[string]interface{}{
+			"clash_api": map[string]interface{}{"external_controller": "127.0.0.1:9090"},
+			"cache_file": map[string]interface{}{"enabled": true, "store_rdrc": true},
+		},
+		"dns":       dnsConfig,
+		"inbounds":  inbounds,
+		"outbounds": outbounds,
+		"route": map[string]interface{}{
+			"rule_set":                ruleSets,
+			"rules":                   rules,
+			"auto_detect_interface":   true,
+			"final":                   "proxy",
+			"default_domain_resolver": "local_dns",
+		},
+	}
+
+	bytes, err := json.MarshalIndent(fullConfig, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("bad link")
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+func (a *App) parseVlessToOutbound(link string, tag string) (map[string]interface{}, error) {
+	u, err := url.Parse(link)
+	if err != nil {
+		return nil, fmt.Errorf("bad link")
 	}
 
 	q := u.Query()
@@ -25,7 +217,6 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 		transportType = "tcp"
 	}
 	security := q.Get("security")
-
 	sni := q.Get("sni")
 	pbk := q.Get("pbk")
 	sid := q.Get("sid")
@@ -33,7 +224,6 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 	if fp == "" {
 		fp = "chrome"
 	}
-
 	path := q.Get("path")
 	hostHeader := q.Get("host")
 	serviceName := q.Get("serviceName")
@@ -41,7 +231,7 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 
 	vlessOutbound := map[string]interface{}{
 		"type":            "vless",
-		"tag":             "proxy",
+		"tag":             tag,
 		"server":          host,
 		"server_port":     port,
 		"uuid":            uuid,
@@ -93,190 +283,6 @@ func (a *App) generateConfig(vlessLink string) (string, error) {
 	if transportType != "tcp" {
 		vlessOutbound["transport"] = transportConfig
 	}
-
-	outbounds := []map[string]interface{}{
-		vlessOutbound,
-		{"type": "direct", "tag": "direct"},
-	}
-
-	inbounds := []map[string]interface{}{}
-
-	inbounds = append(inbounds, map[string]interface{}{
-		"type":        "mixed",
-		"tag":         "mixed-in",
-		"listen":      "127.0.0.1",
-		"listen_port": a.Settings.MixedPort,
-		"sniff":       true,
-	})
-
-	if a.Settings.RunMode == "tun" {
-		tunConfig := map[string]interface{}{
-			"type":                       "tun",
-			"tag":                        "tun-in",
-			"address":                    []string{"172.19.0.1/30"},
-			"mtu":                        9000,
-			"auto_route":                 true,
-			"strict_route":               true,
-			"stack":                      "system",
-			"sniff":                      true,
-			"sniff_override_destination": true,
-		}
-
-		if runtime.GOOS == "linux" {
-			tunConfig["interface_name"] = "tun0"
-		}
-
-		inbounds = append(inbounds, tunConfig)
-	}
-
-	ruleSets := []map[string]interface{}{}
-	if a.Settings.RoutingMode == "smart" {
-		ruleSets = append(ruleSets, map[string]interface{}{
-			"tag":             "geoip-ru",
-			"type":            "remote",
-			"format":          "binary",
-			"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs",
-			"download_detour": "proxy",
-		})
-	}
-
-	rules := []map[string]interface{}{}
-
-	rules = append(rules, map[string]interface{}{
-		"protocol": "dns",
-		"action":   "hijack-dns",
-	})
-
-	if a.Settings.RunMode == "tun" {
-		rules = append(rules, map[string]interface{}{
-			"inbound": "tun-in",
-			"action":  "sniff",
-		})
-	}
-
-	for _, ur := range a.Settings.UserRules {
-		r := map[string]interface{}{}
-		if ur.Outbound == "block" {
-			r["action"] = "reject"
-		} else {
-			r["action"] = "route"
-			r["outbound"] = ur.Outbound
-		}
-
-		if ur.Type == "domain" {
-			r["domain_suffix"] = []string{ur.Value}
-		} else if ur.Type == "ip" {
-			r["ip_cidr"] = []string{ur.Value}
-		} else if ur.Type == "process" {
-			r["process_name"] = []string{ur.Value}
-		}
-		rules = append(rules, r)
-	}
-
-	rules = append(rules, map[string]interface{}{
-		"ip_is_private": true,
-		"action":        "route",
-		"outbound":      "direct",
-	})
-
-	if a.Settings.RoutingMode == "smart" {
-		if len(a.Settings.RuDomains) > 0 {
-			rules = append(rules, map[string]interface{}{
-				"domain_suffix": a.Settings.RuDomains,
-				"action":        "route",
-				"outbound":      "direct",
-			})
-		}
-
-		rules = append(rules, map[string]interface{}{
-			"rule_set": "geoip-ru",
-			"action":   "route",
-			"outbound": "direct",
-		})
-	}
-
-	if ip := net.ParseIP(host); ip != nil {
-		rules = append(rules, map[string]interface{}{
-			"ip_cidr":  []string{host + "/32"},
-			"action":   "route",
-			"outbound": "direct",
-		})
-	} else {
-		rules = append(rules, map[string]interface{}{
-			"domain":   []string{host},
-			"action":   "route",
-			"outbound": "direct",
-		})
-	}
-
-	rules = append(rules, map[string]interface{}{
-		"ip_cidr":  []string{"8.8.8.8/32", "1.1.1.1/32"},
-		"action":   "route",
-		"outbound": "direct",
-	})
-
-	rules = append(rules, map[string]interface{}{
-		"inbound":  "clash-api",
-		"action":   "route",
-		"outbound": "direct",
-	})
-
-	dnsRules := []map[string]interface{}{}
 	
-	if a.Settings.RoutingMode == "smart" {
-		dnsRules = append(dnsRules, map[string]interface{}{
-			"domain_suffix": a.Settings.RuDomains,
-			"server":        "local_dns",
-		})
-	}
-
-	dnsConfig := map[string]interface{}{
-		"servers": []map[string]interface{}{
-			{
-				"tag":    "remote_dns",
-				"type":   "udp",
-				"server": "8.8.8.8",
-				"detour": "proxy",
-			},
-			{
-				"tag":  "local_dns",
-				"type": "local",
-			},
-		},
-		"rules":    dnsRules,
-		"final":    "remote_dns",
-		"strategy": "ipv4_only",
-	}
-
-	fullConfig := map[string]interface{}{
-		"log": map[string]interface{}{
-			"level":     "info",
-			"timestamp": true,
-		},
-		"experimental": map[string]interface{}{
-			"clash_api": map[string]interface{}{
-				"external_controller": "127.0.0.1:9090",
-			},
-			"cache_file": map[string]interface{}{
-				"enabled":    true,
-				"store_rdrc": true,
-			},
-		},
-		"dns":       dnsConfig,
-		"inbounds":  inbounds,
-		"outbounds": outbounds,
-		"route": map[string]interface{}{
-			"rule_set":                ruleSets,
-			"rules":                   rules,
-			"auto_detect_interface":   true,
-			"final":                   "proxy",
-			"default_domain_resolver": "local_dns",
-		},
-	}
-
-	bytes, err := json.MarshalIndent(fullConfig, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
+	return vlessOutbound, nil
 }

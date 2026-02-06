@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,11 +39,16 @@ func (a *App) StartVless(vlessLink string) string {
 		return "Already running"
 	}
 
-	for _, p := range a.Profiles {
-		if p.Key == vlessLink {
-			a.Settings.LastProfileID = p.ID
-			a.SaveSettings(a.Settings)
-			break
+	if strings.HasPrefix(vlessLink, "mixed://") {
+		a.Settings.LastProfileID = vlessLink
+		a.SaveSettings(a.Settings)
+	} else {
+		for _, p := range a.Profiles {
+			if p.Key == vlessLink {
+				a.Settings.LastProfileID = p.ID
+				a.SaveSettings(a.Settings)
+				break
+			}
 		}
 	}
 	a.cmdLock.Unlock()
@@ -112,14 +118,14 @@ func (a *App) StartVless(vlessLink string) string {
 
 			upper := strings.ToUpper(text)
 
-			if strings.Contains(upper, "FATAL") || 
-			   strings.Contains(upper, "PANIC") ||
-			   strings.Contains(upper, "LEVEL=ERROR") || 
-			   strings.Contains(upper, "NO ROUTE") ||    
-			   strings.Contains(upper, "UNREACHABLE") || 
-			   strings.Contains(upper, "REFUSED") ||
-			   strings.Contains(upper, "REALITY VERIFICATION FAILED") {      
-				
+			if strings.Contains(upper, "FATAL") ||
+				strings.Contains(upper, "PANIC") ||
+				strings.Contains(upper, "LEVEL=ERROR") ||
+				strings.Contains(upper, "NO ROUTE") ||
+				strings.Contains(upper, "UNREACHABLE") ||
+				strings.Contains(upper, "REFUSED") ||
+				strings.Contains(upper, "REALITY VERIFICATION FAILED") {
+
 				msg := text
 				if idx := strings.Index(msg, "msg="); idx != -1 {
 					msg = msg[idx+4:]
@@ -207,19 +213,15 @@ func (a *App) StopVless() string {
 	go func() {
 		defer a.shutdownWg.Done()
 
-		if runtime.GOOS == "windows" {
-			cmd.Process.Kill()
-		} else {
-			cmd.Process.Signal(os.Interrupt)
-			done := make(chan error, 1)
-			go func() { done <- cmd.Wait() }()
-			select {
-			case <-done:
-			case <-time.After(1000 * time.Millisecond):
-				cmd.Process.Kill()
-				<-done
+		if err := cmd.Process.Kill(); err != nil {
+			a.log("Failed to kill process by PID: " + err.Error())
+			if runtime.GOOS == "windows" {
+				exec.Command("taskkill", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
 			}
+		} else {
+			cmd.Wait()
 		}
+
 		a.log(">>> Core shutdown complete")
 		wailsRuntime.EventsEmit(a.ctx, "connection_status", "disconnected")
 	}()

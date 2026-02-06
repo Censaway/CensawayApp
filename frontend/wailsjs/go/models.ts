@@ -22,6 +22,24 @@ export namespace main {
 	        this.body = source["body"];
 	    }
 	}
+	export class MixedProfile {
+	    id: string;
+	    name: string;
+	    relay_id: string;
+	    exit_id: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MixedProfile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.relay_id = source["relay_id"];
+	        this.exit_id = source["exit_id"];
+	    }
+	}
 	export class Profile {
 	    id: string;
 	    name: string;

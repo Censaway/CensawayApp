@@ -13,7 +13,7 @@ interface UpdateInfo {
 }
 
 export interface AppState {
-    view: "dashboard" | "settings" | "logs" | "routing";
+    view: "dashboard" | "settings" | "logs" | "routing" | "mixer";
     connectionState: "disconnected" | "connecting" | "connected";
     status: string;
     traffic: TrafficData;
@@ -21,6 +21,7 @@ export interface AppState {
     profiles: UIProfile[];
     selectedId: string | null;
     settings: main.Settings;
+    runningSettings: main.Settings | null;
     logs: string[];
     isPinging: boolean;
     updateInfo: UpdateInfo | null;
@@ -28,7 +29,7 @@ export interface AppState {
     errorMsg: string | null;
     appVersion: string;
 
-    setView: (v: "dashboard" | "settings" | "logs" | "routing") => void;
+    setView: (v: "dashboard" | "settings" | "logs" | "routing" | "mixer") => void;
     setConnectionState: (s: "disconnected" | "connecting" | "connected") => void;
     setStatus: (s: string) => void;
     setTraffic: (t: TrafficData) => void;
@@ -36,7 +37,9 @@ export interface AppState {
     setProfiles: (p: UIProfile[]) => void;
     setSelectedId: (id: string | null) => void;
     setSettings: (s: main.Settings) => void;
-    addLog: (msg: string) => void;
+    setRunningSettings: (s: main.Settings | null) => void;
+    
+    addLogBatch: (msgs: string[]) => void;
     setLogs: (logs: string[]) => void;
     clearLogs: () => void;
     setIsPinging: (b: boolean) => void;
@@ -55,6 +58,7 @@ export const useAppStore = create<AppState>((set) => ({
     profiles: [],
     selectedId: null,
     settings: new main.Settings(),
+    runningSettings: null,
     logs: [],
     isPinging: false,
     updateInfo: null,
@@ -70,12 +74,13 @@ export const useAppStore = create<AppState>((set) => ({
     setProfiles: (profiles) => set({ profiles }),
     setSelectedId: (selectedId) => set({ selectedId }),
     setSettings: (settings) => set({ settings }),
+    setRunningSettings: (runningSettings) => set({ runningSettings }),
     
-    addLog: (msg) => set((state) => {
+    addLogBatch: (msgs) => set((state) => {
         const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, '');
-        const cleanMsg = stripAnsi(msg);
-        const newLogs = [...state.logs, cleanMsg];
-        if (newLogs.length > 500) return { logs: newLogs.slice(-500) };
+        const cleanMsgs = msgs.map(stripAnsi);
+        let newLogs = [...state.logs, ...cleanMsgs];
+        if (newLogs.length > 500) newLogs = newLogs.slice(-500);
         return { logs: newLogs };
     }),
     setLogs: (logs) => set({ logs }),

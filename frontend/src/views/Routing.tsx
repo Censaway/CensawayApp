@@ -7,17 +7,15 @@ import { useAppStore, UIProfile } from '../store/appStore';
 import { SaveSettings, StartVless, StopVless } from "../../wailsjs/go/main/App";
 
 export const RoutingView: React.FC = () => {
-    const { settings, setSettings, connectionState, selectedId, profiles, setConnectionState, setStatus } = useAppStore();
-    const [activeSettings, setActiveSettings] = useState(settings);
+    const { settings, setSettings, runningSettings, setRunningSettings, connectionState, selectedId, profiles, setConnectionState, setStatus } = useAppStore();
     const [newRule, setNewRule] = useState<main.UserRule>(new main.UserRule({ id: "", type: "domain", value: "", outbound: "direct" }));
     const [ruDomainsText, setRuDomainsText] = useState("");
     const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
 
     const isRunning = connectionState === "connected";
-    const hasChanges = JSON.stringify(settings) !== JSON.stringify(activeSettings);
+    const hasChanges = isRunning && runningSettings ? JSON.stringify(settings) !== JSON.stringify(runningSettings) : false;
 
     useEffect(() => {
-        if (!activeSettings.routing_mode && settings.routing_mode) setActiveSettings(settings); // Init check
         if (settings.ru_domains) setRuDomainsText(settings.ru_domains.join("\n"));
     }, []);
 
@@ -25,7 +23,7 @@ export const RoutingView: React.FC = () => {
         const newS = new main.Settings({ ...settings, ...changes });
         setSettings(newS);
         await SaveSettings(newS);
-        if (!isRunning) setActiveSettings(newS);
+        if (!isRunning) setRunningSettings(newS);
     };
 
     const handleRestart = async () => {
@@ -37,7 +35,7 @@ export const RoutingView: React.FC = () => {
             const res = await StartVless(currentProfile.key);
             if (res === "Connected") {
                 setConnectionState("connected"); setStatus("Secured");
-                setActiveSettings(settings);
+                setRunningSettings(settings);
             } else {
                 setConnectionState("disconnected"); setStatus(res);
             }

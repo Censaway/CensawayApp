@@ -1,21 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { main } from "../../wailsjs/go/models";
 import { RestartBanner } from '../components/RestartBanner';
 import { SaveSettings, StopVless, StartVless, OpenUrl } from "../../wailsjs/go/main/App";
 import { useAppStore, UIProfile } from '../store/appStore';
 
 export const SettingsView: React.FC = () => {
-    const { settings, setSettings, connectionState, selectedId, profiles, setConnectionState, setStatus, appVersion } = useAppStore();
-    const [activeSettings, setActiveSettings] = useState(settings);
+    const { settings, setSettings, runningSettings, setRunningSettings, connectionState, selectedId, profiles, setConnectionState, setStatus, appVersion } = useAppStore();
     
     const isRunning = connectionState === "connected";
-    const hasChanges = JSON.stringify(settings) !== JSON.stringify(activeSettings);
+    const hasChanges = isRunning && runningSettings ? JSON.stringify(settings) !== JSON.stringify(runningSettings) : false;
 
     const update = async (changes: Partial<main.Settings>) => {
         const newS = new main.Settings({ ...settings, ...changes });
         setSettings(newS);
         await SaveSettings(newS);
-        if (!isRunning) setActiveSettings(newS);
+        if (!isRunning) setRunningSettings(newS);
     };
 
     const handleRestart = async () => {
@@ -27,7 +26,7 @@ export const SettingsView: React.FC = () => {
             const res = await StartVless(currentProfile.key);
             if (res === "Connected") {
                 setConnectionState("connected"); setStatus("Secured");
-                setActiveSettings(settings);
+                setRunningSettings(settings);
             } else {
                 setConnectionState("disconnected"); setStatus(res);
             }

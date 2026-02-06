@@ -2,6 +2,41 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { CustomSelect } from '../components/CustomSelect';
 import { useAppStore } from '../store/appStore';
 
+const LogLine = React.memo(({ log, index }: { log: string, index: number }) => {
+    let levelClass = "text-gray-400";
+    let bgClass = "transparent";
+
+    if (log.includes("INFO")) levelClass = "text-blue-400";
+    else if (log.includes("WARN")) { levelClass = "text-yellow-400"; bgClass = "bg-yellow-500/5"; }
+    else if (log.includes("ERROR")) { levelClass = "text-red-400"; bgClass = "bg-red-500/10"; }
+    else if (log.includes("FATAL") || log.includes("panic")) { levelClass = "text-rose-500 font-bold"; bgClass = "bg-rose-500/10"; }
+    else if (log.includes("DEBUG")) levelClass = "text-gray-500";
+
+    const match = log.match(/(INFO|WARN|ERROR|FATAL|DEBUG|panic)/);
+
+    if (match && match.index !== undefined) {
+        const timePart = log.substring(0, match.index);
+        const levelPart = match[0];
+        const messagePart = log.substring(match.index + levelPart.length);
+
+        return (
+            <div className={`flex gap-2 px-2 py-0.5 rounded text-[10px] font-mono leading-relaxed hover:bg-white/5 ${bgClass}`}>
+                <span className="text-gray-600 select-none w-8 text-right shrink-0">{index + 1}</span>
+                <span className="text-gray-500 shrink-0 whitespace-pre">{timePart}</span>
+                <span className={`${levelClass} font-bold shrink-0 w-10`}>{levelPart}</span>
+                <span className="text-gray-300 break-all whitespace-pre-wrap">{messagePart}</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex gap-2 px-2 py-0.5 rounded text-[10px] font-mono leading-relaxed hover:bg-white/5">
+            <span className="text-gray-600 select-none w-8 text-right shrink-0">{index + 1}</span>
+            <span className="text-gray-300 break-all">{log}</span>
+        </div>
+    );
+});
+
 export const LogsView: React.FC = () => {
     const { logs, clearLogs } = useAppStore();
     const logsEndRef = useRef<HTMLDivElement>(null);
@@ -15,7 +50,7 @@ export const LogsView: React.FC = () => {
         if (autoScroll) {
             logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
-    }, [logs, autoScroll, search, filterLevel]);
+    }, [logs, autoScroll]);
 
     const filteredLogs = useMemo(() => {
         return logs.filter((log: string) => {
@@ -24,41 +59,6 @@ export const LogsView: React.FC = () => {
             return true;
         });
     }, [logs, search, filterLevel]);
-
-    const renderLogLine = (log: string, index: number) => {
-        let levelClass = "text-gray-400";
-        let bgClass = "transparent";
-
-        if (log.includes("INFO")) levelClass = "text-blue-400";
-        else if (log.includes("WARN")) { levelClass = "text-yellow-400"; bgClass = "bg-yellow-500/5"; }
-        else if (log.includes("ERROR")) { levelClass = "text-red-400"; bgClass = "bg-red-500/10"; }
-        else if (log.includes("FATAL") || log.includes("panic")) { levelClass = "text-rose-500 font-bold"; bgClass = "bg-rose-500/10"; }
-        else if (log.includes("DEBUG")) levelClass = "text-gray-500";
-
-        const match = log.match(/(INFO|WARN|ERROR|FATAL|DEBUG|panic)/);
-
-        if (match && match.index !== undefined) {
-            const timePart = log.substring(0, match.index);
-            const levelPart = match[0];
-            const messagePart = log.substring(match.index + levelPart.length);
-
-            return (
-                <div key={index} className={`flex gap-2 px-2 py-0.5 rounded text-[10px] font-mono leading-relaxed hover:bg-white/5 ${bgClass}`}>
-                    <span className="text-gray-600 select-none w-8 text-right shrink-0">{index + 1}</span>
-                    <span className="text-gray-500 shrink-0 whitespace-pre">{timePart}</span>
-                    <span className={`${levelClass} font-bold shrink-0 w-10`}>{levelPart}</span>
-                    <span className="text-gray-300 break-all whitespace-pre-wrap">{messagePart}</span>
-                </div>
-            );
-        }
-
-        return (
-            <div key={index} className="flex gap-2 px-2 py-0.5 rounded text-[10px] font-mono leading-relaxed hover:bg-white/5">
-                <span className="text-gray-600 select-none w-8 text-right shrink-0">{index + 1}</span>
-                <span className="text-gray-300 break-all">{log}</span>
-            </div>
-        );
-    };
 
     const filterOptions = [
         { value: "ALL", label: "ALL LEVELS", color: "text-gray-400" },
@@ -70,7 +70,7 @@ export const LogsView: React.FC = () => {
 
     return (
         <div className="w-full max-w-5xl h-[520px] glass rounded-3xl overflow-hidden flex flex-col border-t border-white/10 animate-[fadeIn_0.3s_ease-out]">
-            <div className="flex justify-between items-center px-4 py-3 bg-black/20 border-b border-white/5 gap-4 z-20">
+            <div className="flex justify-between items-center px-4 py-3 bg-black/20 border-b border-white/5 gap-4 z-20 shrink-0">
                 <div className="flex items-center gap-3 flex-1">
                     <div className="relative flex-1 max-w-xs">
                         <svg className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -84,16 +84,22 @@ export const LogsView: React.FC = () => {
                     <button onClick={clearLogs} className="text-[10px] font-bold text-gray-500 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 active:scale-95">CLEAR</button>
                 </div>
             </div>
-            <div ref={containerRef} className="flex-1 overflow-y-auto p-2 bg-[#0a0a0e]/50 select-text scrollbar-thin z-10">
+            
+            {/* Added min-h-0 to prevent flex item from overflowing parent in some layout shifts */}
+            <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto p-2 bg-[#0a0a0e]/50 select-text scrollbar-thin z-10">
                 {filteredLogs.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-600 opacity-50">
                         <svg className="w-10 h-10 mb-2 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         <span className="text-xs font-mono">No logs found</span>
                     </div>
-                ) : ( filteredLogs.map((log: string, index: number) => renderLogLine(log, index)) )}
+                ) : ( 
+                    filteredLogs.map((log: string, index: number) => (
+                        <LogLine key={index} log={log} index={index} />
+                    ))
+                )}
                 <div ref={logsEndRef} />
             </div>
-            <div className="px-4 py-1.5 bg-black/40 border-t border-white/5 flex justify-between text-[9px] text-gray-600 font-mono"><span>Total: {logs.length} lines</span><span>Filtered: {filteredLogs.length} lines</span></div>
+            <div className="px-4 py-1.5 bg-black/40 border-t border-white/5 flex justify-between text-[9px] text-gray-600 font-mono shrink-0"><span>Total: {logs.length} lines</span><span>Filtered: {filteredLogs.length} lines</span></div>
         </div>
     );
 };

@@ -7,7 +7,11 @@ export function AddProfile(arg1:string):Promise<string>;
 
 export function CheckAppUpdate():Promise<main.AppUpdateInfo>;
 
+export function CreateMixedProfile(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function CreateSubscription(arg1:string):Promise<string>;
+
+export function DeleteMixedProfile(arg1:string):Promise<void>;
 
 export function DeleteProfile(arg1:string):Promise<Array<main.Profile>>;
 
@@ -20,6 +24,8 @@ export function EnableAutostart():Promise<void>;
 export function GetAppVersion():Promise<string>;
 
 export function GetLogs():Promise<Array<string>>;
+
+export function GetMixedProfiles():Promise<Array<main.MixedProfile>>;
 
 export function GetProfiles():Promise<Array<main.Profile>>;
 
@@ -35,6 +41,8 @@ export function GetSubscriptions():Promise<Array<main.Subscription>>;
 
 export function ImportSubscription(arg1:string):Promise<string>;
 
+export function LoadMixedProfiles():Promise<Array<main.MixedProfile>>;
+
 export function LoadProfiles():Promise<Array<main.Profile>>;
 
 export function LoadSettings():Promise<main.Settings>;
@@ -42,6 +50,8 @@ export function LoadSettings():Promise<main.Settings>;
 export function LoadSubscriptions():Promise<Array<main.Subscription>>;
 
 export function OpenUrl(arg1:string):Promise<void>;
+
+export function SaveMixedProfiles():Promise<void>;
 
 export function SaveProfiles():Promise<void>;
 
@@ -58,6 +68,8 @@ export function StartVless(arg1:string):Promise<string>;
 export function StopVless():Promise<string>;
 
 export function TcpPing(arg1:string):Promise<number>;
+
+export function UpdateMixedProfile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function UpdateProfile(arg1:string,arg2:string,arg3:string):Promise<string>;
 

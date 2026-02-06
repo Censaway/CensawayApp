@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -27,6 +28,11 @@ func (a *App) EnableAutostart() error {
 	defer k.Close()
 
 	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	exe, err = filepath.Abs(exe)
 	if err != nil {
 		return err
 	}

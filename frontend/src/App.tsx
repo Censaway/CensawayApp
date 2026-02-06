@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { GetProfiles, GetSettings, GetLogs, CheckAppUpdate, GetRunningState, GetAppVersion } from "../wailsjs/go/main/App";
 import { EventsOn, EventsOff, WindowMinimise, Quit, WindowToggleMaximise } from "../wailsjs/runtime/runtime";
 import { useAppStore, UIProfile, AppState } from './store/appStore';
@@ -9,20 +9,33 @@ import { Dashboard } from './views/Dashboard';
 import { SettingsView } from './views/Settings';
 import { RoutingView } from './views/Routing';
 import { LogsView } from './views/Logs';
+import { MixerView } from './views/Mixer';
 import { UpdateNotification } from './components/UpdateNotification';
 
 function App() {
     const { 
-        view, errorMsg, 
-        addLog, setTraffic, setConnectionState, setStatus, setErrorMsg,
-        setSettings, setLogs, setProfiles, setSelectedId, setUpdateInfo, setShowUpdate,
+        view, errorMsg,
+        setLogs, setTraffic, setConnectionState, setStatus, setErrorMsg,
+        setSettings, setRunningSettings, setProfiles, setSelectedId, setUpdateInfo, setShowUpdate,
         setCurrentIp, setAppVersion
     } = useAppStore();
+
+    const logBuffer = useRef<string[]>([]);
 
     useEffect(() => {
         initApp();
 
-        EventsOn("log", (msg: string) => addLog(msg));
+        EventsOn("log", (msg: string) => {
+            logBuffer.current.push(msg);
+        });
+
+        const logInterval = setInterval(() => {
+            if (logBuffer.current.length > 0) {
+                useAppStore.getState().addLogBatch(logBuffer.current);
+                logBuffer.current = [];
+            }
+        }, 200);
+
         EventsOn("traffic", (jsonStr: string) => { try { setTraffic(JSON.parse(jsonStr)); } catch (e) {} });
         EventsOn("error", (msg: string) => {
             setErrorMsg(msg);
@@ -52,6 +65,7 @@ function App() {
         });
 
         return () => {
+            clearInterval(logInterval);
             EventsOff("log");
             EventsOff("traffic");
             EventsOff("error");
@@ -68,6 +82,7 @@ function App() {
 
             const s = await GetSettings();
             setSettings(s);
+            setRunningSettings(s);
 
             const oldLogs = await GetLogs();
             if (oldLogs && oldLogs.length > 0) {
@@ -85,8 +100,12 @@ function App() {
             const uiList = (list || []) as UIProfile[];
             setProfiles(uiList);
             if (uiList.length > 0 && s.last_profile_id) {
-                 const exists = uiList.find((p: UIProfile) => p.id === s.last_profile_id);
-                 setSelectedId(exists ? exists.id : uiList[0].id);
+                 if (s.last_profile_id.startsWith("mixed://")) {
+                     setSelectedId(s.last_profile_id);
+                 } else {
+                     const exists = uiList.find((p: UIProfile) => p.id === s.last_profile_id);
+                     setSelectedId(exists ? exists.id : uiList[0].id);
+                 }
             } else if (uiList.length > 0) {
                  setSelectedId(uiList[0].id);
             }
@@ -127,6 +146,7 @@ function App() {
                     {view === "settings" && <SettingsView />}
                     {view === "routing" && <RoutingView />}
                     {view === "logs" && <LogsView />}
+                    {view === "mixer" && <MixerView />}
                 </div>
 
                 <UpdateNotification 

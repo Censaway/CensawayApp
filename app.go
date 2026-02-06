@@ -20,7 +20,7 @@ import (
 //go:embed dll/wintun.dll
 var wintunDll []byte
 
-const AppVersion = "v1.2.0"
+const AppVersion = "v1.3.0"
 
 type Subscription struct {
 	ID        string `json:"id"`
@@ -35,6 +35,13 @@ type Profile struct {
 	Key            string `json:"key"`
 	SubscriptionID string `json:"subscription_id"`
 	CreatedAt      int64  `json:"created_at"`
+}
+
+type MixedProfile struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	RelayID string `json:"relay_id"`
+	ExitID  string `json:"exit_id"`
 }
 
 type Settings struct {
@@ -61,6 +68,7 @@ type App struct {
 	shutdownWg    sync.WaitGroup
 	Profiles      []Profile
 	Subscriptions []Subscription
+	MixedProfiles []MixedProfile
 	Settings      Settings
 	statsCancel   context.CancelFunc
 	isQuitting    bool
@@ -78,6 +86,7 @@ func NewApp() *App {
 	return &App{
 		Profiles:      []Profile{},
 		Subscriptions: []Subscription{},
+		MixedProfiles: []MixedProfile{},
 		Settings: Settings{
 			RoutingMode: "smart",
 			RunMode:     "tun",
@@ -121,7 +130,8 @@ func (a *App) startup(ctx context.Context) {
 	a.LoadSettings()
 	a.LoadProfiles()
 	a.LoadSubscriptions()
-	
+	a.LoadMixedProfiles()
+
 	a.platformInit()
 
 	go func() {
@@ -145,12 +155,18 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) connectLastProfile() {
 	var targetLink string
-	for _, p := range a.Profiles {
-		if p.ID == a.Settings.LastProfileID {
-			targetLink = p.Key
-			break
+	
+	if strings.HasPrefix(a.Settings.LastProfileID, "mixed://") {
+		targetLink = a.Settings.LastProfileID
+	} else {
+		for _, p := range a.Profiles {
+			if p.ID == a.Settings.LastProfileID {
+				targetLink = p.Key
+				break
+			}
 		}
 	}
+	
 	if targetLink != "" {
 		a.log("Auto-connecting...")
 		time.Sleep(1 * time.Second)
@@ -195,6 +211,7 @@ func (a *App) getAppDataDir() string {
 
 func (a *App) getProfilesPath() string { return filepath.Join(a.getAppDataDir(), "profiles.json") }
 func (a *App) getSettingsPath() string { return filepath.Join(a.getAppDataDir(), "settings.json") }
+func (a *App) getMixedProfilesPath() string { return filepath.Join(a.getAppDataDir(), "mixed_profiles.json") }
 func (a *App) getGeoIpPath() string    { return filepath.Join(a.getAppDataDir(), "geoip.dat") }
 func (a *App) getSrsPath() string      { return filepath.Join(a.getAppDataDir(), "geoip-ru.srs") }
 func (a *App) GetAppVersion() string   { return AppVersion }
