@@ -29,7 +29,7 @@ func (a *App) onTrayReady(ctx context.Context) {
 	} else {
 		systray.SetIcon(a.Icon)
 	}
-	
+
 	systray.SetTitle("Censaway")
 	systray.SetTooltip("CensawayApp VPN")
 

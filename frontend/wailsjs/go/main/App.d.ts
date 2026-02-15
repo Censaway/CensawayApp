@@ -27,6 +27,8 @@ export function GetLogs():Promise<Array<string>>;
 
 export function GetMixedProfiles():Promise<Array<main.MixedProfile>>;
 
+export function GetPortalServers(arg1:string):Promise<Array<main.PortalServer>>;
+
 export function GetProfiles():Promise<Array<main.Profile>>;
 
 export function GetProxyIP():Promise<string>;
@@ -58,6 +60,8 @@ export function SaveProfiles():Promise<void>;
 export function SaveSettings(arg1:main.Settings):Promise<string>;
 
 export function SaveSubscriptions():Promise<void>;
+
+export function SetPortalRouting(arg1:string,arg2:string):Promise<string>;
 
 export function SetupTray(arg1:context.Context):Promise<void>;
 

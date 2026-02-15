@@ -40,6 +40,22 @@ export namespace main {
 	        this.exit_id = source["exit_id"];
 	    }
 	}
+	export class PortalServer {
+	    tag: string;
+	    name: string;
+	    type: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PortalServer(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tag = source["tag"];
+	        this.name = source["name"];
+	        this.type = source["type"];
+	    }
+	}
 	export class Profile {
 	    id: string;
 	    name: string;

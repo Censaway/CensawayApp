@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"text/template"
-	
+
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 

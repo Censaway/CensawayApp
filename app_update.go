@@ -66,11 +66,11 @@ func (a *App) CheckAppUpdate() AppUpdateInfo {
 
 	if isNewerVersion(release.TagName, AppVersion) {
 		return AppUpdateInfo{
-			Available:   true,
-			Version:     release.TagName,
-			CurrentVer:  AppVersion,
-			ReleaseUrl:  release.HtmlUrl,
-			Body:        release.Body,
+			Available:  true,
+			Version:    release.TagName,
+			CurrentVer: AppVersion,
+			ReleaseUrl: release.HtmlUrl,
+			Body:       release.Body,
 		}
 	}
 

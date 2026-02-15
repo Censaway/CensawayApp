@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +22,7 @@ import (
 //go:embed dll/wintun.dll
 var wintunDll []byte
 
-const AppVersion = "v1.3.0"
+const AppVersion = "v1.3.1"
 
 type Subscription struct {
 	ID        string `json:"id"`
@@ -59,6 +61,12 @@ type UserRule struct {
 	Type     string `json:"type"`
 	Value    string `json:"value"`
 	Outbound string `json:"outbound"`
+}
+
+type PortalServer struct {
+	Tag  string `json:"tag"`
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type App struct {
@@ -155,7 +163,7 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) connectLastProfile() {
 	var targetLink string
-	
+
 	if strings.HasPrefix(a.Settings.LastProfileID, "mixed://") {
 		targetLink = a.Settings.LastProfileID
 	} else {
@@ -166,7 +174,7 @@ func (a *App) connectLastProfile() {
 			}
 		}
 	}
-	
+
 	if targetLink != "" {
 		a.log("Auto-connecting...")
 		time.Sleep(1 * time.Second)
@@ -211,7 +219,96 @@ func (a *App) getAppDataDir() string {
 
 func (a *App) getProfilesPath() string { return filepath.Join(a.getAppDataDir(), "profiles.json") }
 func (a *App) getSettingsPath() string { return filepath.Join(a.getAppDataDir(), "settings.json") }
-func (a *App) getMixedProfilesPath() string { return filepath.Join(a.getAppDataDir(), "mixed_profiles.json") }
-func (a *App) getGeoIpPath() string    { return filepath.Join(a.getAppDataDir(), "geoip.dat") }
-func (a *App) getSrsPath() string      { return filepath.Join(a.getAppDataDir(), "geoip-ru.srs") }
-func (a *App) GetAppVersion() string   { return AppVersion }
+func (a *App) getMixedProfilesPath() string {
+	return filepath.Join(a.getAppDataDir(), "mixed_profiles.json")
+}
+func (a *App) getGeoIpPath() string  { return filepath.Join(a.getAppDataDir(), "geoip.dat") }
+func (a *App) getSrsPath() string    { return filepath.Join(a.getAppDataDir(), "geoip-ru.srs") }
+func (a *App) GetAppVersion() string { return AppVersion }
+
+func (a *App) GetPortalServers(profileID string) []PortalServer {
+	var profile *Profile
+	for _, p := range a.Profiles {
+		if p.ID == profileID {
+			profile = &p
+			break
+		}
+	}
+	if profile == nil {
+		return []PortalServer{}
+	}
+
+	u, err := url.Parse(profile.Key)
+	if err != nil {
+		return []PortalServer{}
+	}
+	
+	uuid := u.User.Username()
+	host := u.Hostname()
+	
+	apiURL := fmt.Sprintf("https://%s/api/portal/servers", host)
+	
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		a.log("Portal Request Error: " + err.Error())
+		return []PortalServer{}
+	}
+	req.Header.Set("X-Client-UUID", uuid)
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		a.log("Portal Connect Error: " + err.Error())
+		return []PortalServer{}
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		a.log(fmt.Sprintf("Portal Error: %d", resp.StatusCode))
+		return []PortalServer{}
+	}
+	
+	var servers []PortalServer
+	json.NewDecoder(resp.Body).Decode(&servers)
+	return servers
+}
+
+func (a *App) SetPortalRouting(profileID string, tag string) string {
+	var profile *Profile
+	for _, p := range a.Profiles {
+		if p.ID == profileID {
+			profile = &p
+			break
+		}
+	}
+	if profile == nil {
+		return "Profile not found"
+	}
+
+	u, err := url.Parse(profile.Key)
+	if err != nil {
+		return "Invalid link"
+	}
+	
+	uuid := u.User.Username()
+	host := u.Hostname()
+	apiURL := fmt.Sprintf("https://%s/api/portal/routing", host)
+
+	payload := map[string]string{
+		"uuid": uuid,
+		"tag": tag,
+	}
+	jsonData, _ := json.Marshal(payload)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "Connection failed"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		return "OK"
+	}
+	return "Failed to update"
+}

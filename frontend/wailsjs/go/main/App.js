@@ -50,6 +50,10 @@ export function GetMixedProfiles() {
   return window['go']['main']['App']['GetMixedProfiles']();
 }
 
+export function GetPortalServers(arg1) {
+  return window['go']['main']['App']['GetPortalServers'](arg1);
+}
+
 export function GetProfiles() {
   return window['go']['main']['App']['GetProfiles']();
 }
@@ -112,6 +116,10 @@ export function SaveSettings(arg1) {
 
 export function SaveSubscriptions() {
   return window['go']['main']['App']['SaveSubscriptions']();
+}
+
+export function SetPortalRouting(arg1, arg2) {
+  return window['go']['main']['App']['SetPortalRouting'](arg1, arg2);
 }
 
 export function SetupTray(arg1) {

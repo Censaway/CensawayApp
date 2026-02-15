@@ -31,7 +31,7 @@ func (a *App) CreateMixedProfile(name string, relayID string, exitID string) str
 	if name == "" {
 		name = "New Chain"
 	}
-	
+
 	newMix := MixedProfile{
 		ID:      uuid.New().String(),
 		Name:    name,

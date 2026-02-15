@@ -12,11 +12,11 @@ import (
 
 func (a *App) GetRunningProcesses() []string {
 	processes := make(map[string]struct{})
-	
+
 	if runtime.GOOS == "windows" {
 		cmd := exec.Command("tasklist", "/FO", "CSV", "/NH")
 		a.configureCmd(cmd)
-		
+
 		output, err := cmd.Output()
 		if err == nil {
 			r := bytes.NewReader(output)
@@ -40,7 +40,7 @@ func (a *App) GetRunningProcesses() []string {
 
 		cmd := exec.Command("ps", args...)
 		a.configureCmd(cmd)
-		
+
 		output, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(string(output), "\n")
@@ -71,12 +71,12 @@ func isSystemProcess(name string) bool {
 	lower := strings.ToLower(name)
 
 	if runtime.GOOS == "darwin" {
-		if strings.Contains(lower, "helper") || 
-		   strings.Contains(lower, "renderer") || 
-		   strings.Contains(lower, "gpu") || 
-		   strings.Contains(lower, "plugin") ||
-		   strings.Contains(lower, "xpc") ||
-		   strings.Contains(lower, "service") {
+		if strings.Contains(lower, "helper") ||
+			strings.Contains(lower, "renderer") ||
+			strings.Contains(lower, "gpu") ||
+			strings.Contains(lower, "plugin") ||
+			strings.Contains(lower, "xpc") ||
+			strings.Contains(lower, "service") {
 			return true
 		}
 	}

@@ -17,7 +17,7 @@ var (
 
 func (a *App) SetupTray(ctx context.Context) {
 	start, _ := systray.RunWithExternalLoop(func() { a.onTrayReady(ctx) }, a.onTrayExit)
-	
+
 	go start()
 }
 

@@ -11,7 +11,7 @@ import (
 
 func (a *App) generateConfig(linkOrMixId string) (string, error) {
 	outbounds := []map[string]interface{}{}
-	
+
 	if strings.HasPrefix(linkOrMixId, "mixed://") {
 		mixedID := strings.TrimPrefix(linkOrMixId, "mixed://")
 		var targetMix *MixedProfile
@@ -26,7 +26,7 @@ func (a *App) generateConfig(linkOrMixId string) (string, error) {
 		}
 
 		var relayKey, exitKey string
-		
+
 		for _, p := range a.Profiles {
 			if p.ID == targetMix.RelayID {
 				relayKey = p.Key
@@ -179,7 +179,7 @@ func (a *App) generateConfig(linkOrMixId string) (string, error) {
 	fullConfig := map[string]interface{}{
 		"log": map[string]interface{}{"level": "info", "timestamp": true},
 		"experimental": map[string]interface{}{
-			"clash_api": map[string]interface{}{"external_controller": "127.0.0.1:9090"},
+			"clash_api":  map[string]interface{}{"external_controller": "127.0.0.1:9090"},
 			"cache_file": map[string]interface{}{"enabled": true, "store_rdrc": true},
 		},
 		"dns":       dnsConfig,
@@ -283,6 +283,6 @@ func (a *App) parseVlessToOutbound(link string, tag string) (map[string]interfac
 	if transportType != "tcp" {
 		vlessOutbound["transport"] = transportConfig
 	}
-	
+
 	return vlessOutbound, nil
 }

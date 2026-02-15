@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	
+
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
