@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { CustomSelect } from "../components/CustomSelect";
 import { useAppStore } from "../store/appStore";
+import { useTranslation } from "../hooks/useTranslation";
 
 const LogLine = React.memo(({ log, index }: { log: string; index: number }) => {
   let levelClass = "text-gray-400";
@@ -59,6 +60,7 @@ export const LogsView: React.FC = () => {
   const { logs, clearLogs } = useAppStore();
   const logsEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   const [search, setSearch] = useState("");
   const [filterLevel, setFilterLevel] = useState<string>("ALL");
@@ -80,7 +82,7 @@ export const LogsView: React.FC = () => {
   }, [logs, search, filterLevel]);
 
   const filterOptions = [
-    { value: "ALL", label: "ALL LEVELS", color: "text-gray-400" },
+    { value: "ALL", label: t("logs.all_levels"), color: "text-gray-400" },
     { value: "INFO", label: "INFO", color: "text-blue-400" },
     { value: "WARN", label: "WARN", color: "text-yellow-400" },
     { value: "ERROR", label: "ERROR", color: "text-red-400" },
@@ -107,7 +109,7 @@ export const LogsView: React.FC = () => {
             </svg>
             <input
               type="text"
-              placeholder="Search logs..."
+              placeholder={t("logs.search")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-[#0a0a0e] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-[10px] text-gray-200 focus:border-purple-500/50 outline-none transition-colors shadow-sm"
@@ -144,7 +146,7 @@ export const LogsView: React.FC = () => {
             onClick={clearLogs}
             className="text-[10px] font-bold text-gray-500 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 active:scale-95"
           >
-            CLEAR
+            {t("logs.clear")}
           </button>
         </div>
       </div>
@@ -168,7 +170,7 @@ export const LogsView: React.FC = () => {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <span className="text-xs font-mono">No logs found</span>
+            <span className="text-xs font-mono">{t("logs.no_logs")}</span>
           </div>
         ) : (
           filteredLogs.map((log: string, index: number) => (
@@ -178,8 +180,8 @@ export const LogsView: React.FC = () => {
         <div ref={logsEndRef} />
       </div>
       <div className="px-4 py-1.5 bg-black/40 border-t border-white/5 flex justify-between text-[9px] text-gray-600 font-mono shrink-0">
-        <span>Total: {logs.length} lines</span>
-        <span>Filtered: {filteredLogs.length} lines</span>
+        <span>{t("logs.total")}: {logs.length} {t("logs.lines")}</span>
+        <span>{t("logs.filtered")}: {filteredLogs.length} {t("logs.lines")}</span>
       </div>
     </div>
   );

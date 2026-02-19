@@ -5,6 +5,7 @@ import { RestartBanner } from "../components/RestartBanner";
 import { ProcessSelectorModal } from "../components/ProcessSelectorModal";
 import { useAppStore, UIProfile } from "../store/appStore";
 import { SaveSettings, StartVless, StopVless } from "../../wailsjs/go/main/App";
+import { useTranslation } from "../hooks/useTranslation";
 
 export const RoutingView: React.FC = () => {
   const {
@@ -18,6 +19,8 @@ export const RoutingView: React.FC = () => {
     setConnectionState,
     setStatus,
   } = useAppStore();
+  const { t } = useTranslation();
+
   const [newRule, setNewRule] = useState<main.UserRule>(
     new main.UserRule({
       id: "",
@@ -48,7 +51,7 @@ export const RoutingView: React.FC = () => {
 
   const handleRestart = async () => {
     if (!isRunning) return;
-    setStatus("Restarting...");
+    setStatus(t("dashboard.starting"));
     setConnectionState("connecting");
     await StopVless();
     const currentProfile = profiles.find((p: UIProfile) => p.id === selectedId);
@@ -56,7 +59,7 @@ export const RoutingView: React.FC = () => {
       const res = await StartVless(currentProfile.key);
       if (res === "Connected") {
         setConnectionState("connected");
-        setStatus("Secured");
+        setStatus(t("dashboard.secured"));
         setRunningSettings(settings);
       } else {
         setConnectionState("disconnected");
@@ -123,14 +126,14 @@ export const RoutingView: React.FC = () => {
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">
-              Custom Rules
+              {t("routing.custom_rules")}
             </h2>
             <p className="text-[10px] text-gray-500 mt-1 font-mono">
-              Override routing for domains/IPs/Apps
+              {t("routing.custom_desc")}
             </p>
           </div>
           <div className="text-[9px] text-gray-600 bg-white/5 px-2 py-1 rounded border border-white/5">
-            PRIORITY: HIGH
+            {t("routing.priority")}
           </div>
         </div>
 
@@ -159,7 +162,7 @@ export const RoutingView: React.FC = () => {
                 onClick={() => setIsProcessModalOpen(true)}
                 className="absolute right-1 top-1 bottom-1 px-3 bg-white/10 hover:bg-white/20 text-[9px] font-bold text-gray-300 rounded-md transition-colors"
               >
-                LIST
+                {t("routing.list")}
               </button>
             )}
           </div>
@@ -195,16 +198,16 @@ export const RoutingView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-12 gap-4 px-4 py-2 text-[9px] font-bold text-gray-500 tracking-widest border-b border-white/5 select-none">
-          <div className="col-span-2">ACTION</div>
-          <div className="col-span-2">TYPE</div>
-          <div className="col-span-7">VALUE</div>
-          <div className="col-span-1 text-right">DEL</div>
+          <div className="col-span-2">{t("routing.action")}</div>
+          <div className="col-span-2">{t("routing.type")}</div>
+          <div className="col-span-7">{t("routing.value")}</div>
+          <div className="col-span-1 text-right">{t("routing.del")}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-1 mt-2 pr-1 scrollbar-hide z-0">
           {settings.user_rules.length === 0 ? (
             <div className="h-32 flex flex-col items-center justify-center text-gray-600 text-xs border-2 border-dashed border-white/5 rounded-xl mt-4 animate-slideIn">
-              <span>No custom rules added</span>
+              <span>{t("routing.no_rules")}</span>
             </div>
           ) : (
             settings.user_rules.map((rule: main.UserRule) => (
@@ -258,10 +261,10 @@ export const RoutingView: React.FC = () => {
       <div className="glass w-64 rounded-3xl p-6 border-t border-white/10 flex flex-col">
         <div className="mb-4">
           <h2 className="text-sm font-bold text-white tracking-tight">
-            Direct Domains
+            {t("routing.direct_domains")}
           </h2>
           <p className="text-[10px] text-gray-500 mt-1">
-            Direct connection list (RU)
+            {t("routing.direct_desc")}
           </p>
         </div>
         <div className="flex-1 relative mb-4">
@@ -276,7 +279,7 @@ export const RoutingView: React.FC = () => {
           onClick={saveRuDomains}
           className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-bold py-2 rounded-lg transition-all active:scale-95"
         >
-          SAVE LIST
+          {t("routing.save_list")}
         </button>
       </div>
 

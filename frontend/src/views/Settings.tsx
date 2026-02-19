@@ -8,6 +8,7 @@ import {
   OpenUrl,
 } from "../../wailsjs/go/main/App";
 import { useAppStore, UIProfile } from "../store/appStore";
+import { useTranslation } from "../hooks/useTranslation";
 
 export const SettingsView: React.FC = () => {
   const {
@@ -22,6 +23,7 @@ export const SettingsView: React.FC = () => {
     setStatus,
     appVersion,
   } = useAppStore();
+  const { t } = useTranslation();
 
   const isRunning = connectionState === "connected";
   const hasChanges =
@@ -33,12 +35,23 @@ export const SettingsView: React.FC = () => {
     const newS = new main.Settings({ ...settings, ...changes });
     setSettings(newS);
     await SaveSettings(newS);
-    if (!isRunning) setRunningSettings(newS);
+
+    // FIX: Если меняется язык, обновляем runningSettings сразу,
+    // чтобы не появлялся баннер о перезагрузке (так как язык не влияет на ядро).
+    if (changes.language && runningSettings) {
+      setRunningSettings(
+        new main.Settings({ ...runningSettings, language: changes.language }),
+      );
+    }
+    // Для остальных настроек обновляем runningSettings только если VPN выключен.
+    else if (!isRunning) {
+      setRunningSettings(newS);
+    }
   };
 
   const handleRestart = async () => {
     if (!isRunning) return;
-    setStatus("Restarting...");
+    setStatus(t("dashboard.starting"));
     setConnectionState("connecting");
     await StopVless();
     const currentProfile = profiles.find((p: UIProfile) => p.id === selectedId);
@@ -46,7 +59,7 @@ export const SettingsView: React.FC = () => {
       const res = await StartVless(currentProfile.key);
       if (res === "Connected") {
         setConnectionState("connected");
-        setStatus("Secured");
+        setStatus(t("dashboard.secured"));
         setRunningSettings(settings);
       } else {
         setConnectionState("disconnected");
@@ -63,13 +76,42 @@ export const SettingsView: React.FC = () => {
     <div className="w-full max-w-2xl animate-[fadeIn_0.3s_ease-out]">
       <div className="glass rounded-3xl p-8 border-t border-white/10 flex flex-col gap-8">
         <h2 className="text-xl font-bold text-gray-200 tracking-tight">
-          Configuration
+          {t("settings.config")}
         </h2>
 
         <div className="space-y-8">
+          {/* Language Selector */}
           <div>
             <div className="text-sm font-medium text-white mb-3">
-              Split Tunneling
+              {t("settings.language")}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => update({ language: "en" })}
+                className={`p-4 rounded-xl border text-left transition-all ${settings.language === "en" ? "bg-purple-500/20 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]" : "bg-black/20 border-white/5 hover:bg-white/5 opacity-70 hover:opacity-100"}`}
+              >
+                <div
+                  className={`font-bold text-sm mb-1.5 ${settings.language === "en" ? "text-purple-300" : "text-gray-400"}`}
+                >
+                  English
+                </div>
+              </button>
+              <button
+                onClick={() => update({ language: "ru" })}
+                className={`p-4 rounded-xl border text-left transition-all ${settings.language === "ru" ? "bg-purple-500/20 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]" : "bg-black/20 border-white/5 hover:bg-white/5 opacity-70 hover:opacity-100"}`}
+              >
+                <div
+                  className={`font-bold text-sm mb-1.5 ${settings.language === "ru" ? "text-purple-300" : "text-gray-400"}`}
+                >
+                  Русский
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium text-white mb-3">
+              {t("settings.split_tunneling")}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button
@@ -79,10 +121,10 @@ export const SettingsView: React.FC = () => {
                 <div
                   className={`font-bold text-sm mb-1.5 ${settings.routing_mode === "smart" ? "text-purple-300" : "text-gray-400"}`}
                 >
-                  Smart Mode
+                  {t("settings.smart_mode")}
                 </div>
                 <div className="text-[10px] text-gray-500 leading-tight">
-                  Bypass local sites. Proxy blocked only.
+                  {t("settings.smart_desc")}
                 </div>
               </button>
               <button
@@ -92,10 +134,10 @@ export const SettingsView: React.FC = () => {
                 <div
                   className={`font-bold text-sm mb-1.5 ${settings.routing_mode === "global" ? "text-purple-300" : "text-gray-400"}`}
                 >
-                  Global Mode
+                  {t("settings.global_mode")}
                 </div>
                 <div className="text-[10px] text-gray-500 leading-tight">
-                  Route ALL traffic through VPN.
+                  {t("settings.global_desc")}
                 </div>
               </button>
             </div>
@@ -103,7 +145,7 @@ export const SettingsView: React.FC = () => {
 
           <div>
             <div className="text-sm font-medium text-white mb-3">
-              Operating Mode
+              {t("settings.op_mode")}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button
@@ -113,10 +155,10 @@ export const SettingsView: React.FC = () => {
                 <div
                   className={`font-bold text-sm mb-1.5 ${settings.run_mode === "tun" ? "text-emerald-300" : "text-gray-400"}`}
                 >
-                  TUN Mode
+                  {t("settings.tun_mode")}
                 </div>
                 <div className="text-[10px] text-gray-500 leading-tight">
-                  Virtual Interface. All apps.
+                  {t("settings.tun_desc")}
                 </div>
               </button>
               <button
@@ -126,10 +168,10 @@ export const SettingsView: React.FC = () => {
                 <div
                   className={`font-bold text-sm mb-1.5 ${settings.run_mode === "proxy" ? "text-emerald-300" : "text-gray-400"}`}
                 >
-                  System Proxy
+                  {t("settings.sys_proxy")}
                 </div>
                 <div className="text-[10px] text-gray-500 leading-tight">
-                  Browsers only.
+                  {t("settings.sys_proxy_desc")}
                 </div>
               </button>
             </div>
@@ -141,10 +183,10 @@ export const SettingsView: React.FC = () => {
                 <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/5">
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-gray-200">
-                      Listening Port
+                      {t("settings.listening_port")}
                     </span>
                     <span className="text-[10px] text-gray-500">
-                      Local SOCKS/HTTP port
+                      {t("settings.port_desc")}
                     </span>
                   </div>
                   <div className="relative">
@@ -169,7 +211,9 @@ export const SettingsView: React.FC = () => {
           </div>
 
           <div>
-            <div className="text-sm font-medium text-white mb-3">Startup</div>
+            <div className="text-sm font-medium text-white mb-3">
+              {t("settings.startup")}
+            </div>
             <div
               onClick={() => update({ auto_connect: !settings.auto_connect })}
               className={`group flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${settings.auto_connect ? "bg-purple-500/10 border-purple-500/30 shadow-[0_0_20px_-5px_rgba(168,85,247,0.2)]" : "bg-black/20 border-white/5 hover:bg-white/5"}`}
@@ -178,10 +222,10 @@ export const SettingsView: React.FC = () => {
                 <span
                   className={`text-sm font-bold transition-colors ${settings.auto_connect ? "text-purple-400" : "text-gray-400"}`}
                 >
-                  Auto Connect
+                  {t("settings.auto_connect")}
                 </span>
                 <span className="text-[10px] text-gray-500">
-                  Connect to last server on launch
+                  {t("settings.auto_connect_desc")}
                 </span>
               </div>
               <div

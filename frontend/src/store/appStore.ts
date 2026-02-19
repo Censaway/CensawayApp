@@ -52,6 +52,17 @@ export interface AppState {
   setAppVersion: (v: string) => void;
 }
 
+const initialSettings = new main.Settings({
+  language: "en",
+  routing_mode: "smart",
+  run_mode: "tun",
+  mixed_port: 2080,
+  user_rules: [],
+  ru_domains: [],
+  auto_connect: false,
+  last_profile_id: "",
+});
+
 export const useAppStore = create<AppState>((set) => ({
   view: "dashboard",
   connectionState: "disconnected",
@@ -60,7 +71,7 @@ export const useAppStore = create<AppState>((set) => ({
   currentIp: null,
   profiles: [],
   selectedId: null,
-  settings: new main.Settings(),
+  settings: initialSettings,
   runningSettings: null,
   logs: [],
   isPinging: false,

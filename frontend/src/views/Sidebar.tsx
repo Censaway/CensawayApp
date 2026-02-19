@@ -1,8 +1,10 @@
 import React from "react";
 import { useAppStore } from "../store/appStore";
+import { useTranslation } from "../hooks/useTranslation";
 
 export const Sidebar: React.FC = () => {
   const { view, setView } = useAppStore();
+  const { t } = useTranslation();
 
   return (
     <div
@@ -31,7 +33,7 @@ export const Sidebar: React.FC = () => {
               />
             </svg>
           }
-          label="HOME"
+          label={t("sidebar.home")}
           active={view === "dashboard"}
           onClick={() => setView("dashboard")}
         />
@@ -52,7 +54,7 @@ export const Sidebar: React.FC = () => {
               />
             </svg>
           }
-          label="LOGS"
+          label={t("sidebar.logs")}
           active={view === "logs"}
           onClick={() => setView("logs")}
         />
@@ -73,7 +75,7 @@ export const Sidebar: React.FC = () => {
               />
             </svg>
           }
-          label="ROUTING"
+          label={t("sidebar.routing")}
           active={view === "routing"}
           onClick={() => setView("routing")}
         />
@@ -94,7 +96,7 @@ export const Sidebar: React.FC = () => {
               />
             </svg>
           }
-          label="MIXER"
+          label={t("sidebar.mixer")}
           active={view === "mixer"}
           onClick={() => setView("mixer")}
         />
@@ -121,7 +123,7 @@ export const Sidebar: React.FC = () => {
               />
             </svg>
           }
-          label="SETTINGS"
+          label={t("sidebar.settings")}
           active={view === "settings"}
           onClick={() => setView("settings")}
         />
@@ -136,7 +138,7 @@ const NavBtn = ({ icon, label, active, onClick }: any) => (
     className={`group flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${active ? "bg-white/10 text-white shadow-lg shadow-purple-500/10" : "text-gray-500 hover:text-gray-300 hover:bg-white/5"}`}
   >
     {icon}
-    <span className="text-[9px] font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-opacity absolute left-16 bg-black/80 px-2 py-1 rounded border border-white/10 pointer-events-none z-50">
+    <span className="text-[9px] font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-opacity absolute left-16 bg-black/80 px-2 py-1 rounded border border-white/10 pointer-events-none z-50 whitespace-nowrap">
       {label}
     </span>
   </button>

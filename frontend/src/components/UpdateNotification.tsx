@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { OpenUrl } from "../../wailsjs/go/main/App";
+import { useTranslation } from "../hooks/useTranslation";
 
 interface Props {
   visible: boolean;
@@ -15,6 +16,7 @@ export const UpdateNotification: React.FC<Props> = ({
   onClose,
 }) => {
   const [render, setRender] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (visible) {
@@ -55,10 +57,10 @@ export const UpdateNotification: React.FC<Props> = ({
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-bold text-white leading-tight mb-1">
-              Update Available
+              {t("update.available")}
             </h4>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">Version:</span>
+              <span className="text-xs text-gray-400">{t("update.version")}:</span>
               <span className="text-[10px] font-mono font-bold text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
                 {version}
               </span>
@@ -88,7 +90,7 @@ export const UpdateNotification: React.FC<Props> = ({
           onClick={() => OpenUrl(url)}
           className="w-full py-2.5 rounded-xl bg-white text-black text-xs font-bold hover:bg-gray-200 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
         >
-          DOWNLOAD UPDATE
+          {t("update.download")}
           <svg
             className="w-3.5 h-3.5"
             fill="none"

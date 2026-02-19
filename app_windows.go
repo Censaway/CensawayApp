@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -64,8 +65,20 @@ func (a *App) cleanupZombies() {
 }
 
 func (a *App) ensurePermissions(binPath string) error {
+	if a.Settings.RunMode == "proxy" {
+		return nil
+	}
+
 	if !a.checkAdmin() {
-		return fmt.Errorf("please restart app as Administrator for TUN mode")
+		a.log("Admin rights missing for TUN mode. Requesting elevation...")
+		
+		err := a.runMeElevated()
+		if err != nil {
+			return fmt.Errorf("failed to elevate: %v", err)
+		}
+		
+		os.Exit(0)
+		return nil 
 	}
 	return nil
 }
@@ -90,4 +103,24 @@ func (a *App) checkAdmin() bool {
 		return false
 	}
 	return member
+}
+
+func (a *App) runMeElevated() error {
+	verb := "runas"
+	exe, _ := os.Executable()
+	cwd, _ := os.Getwd()
+	args := strings.Join(os.Args[1:], " ")
+
+	verbPtr, _ := syscall.UTF16PtrFromString(verb)
+	exePtr, _ := syscall.UTF16PtrFromString(exe)
+	cwdPtr, _ := syscall.UTF16PtrFromString(cwd)
+	argsPtr, _ := syscall.UTF16PtrFromString(args)
+
+	var showCmd int32 = 1
+
+	err := windows.ShellExecute(0, verbPtr, exePtr, argsPtr, cwdPtr, showCmd)
+	if err != nil {
+		return err
+	}
+	return nil
 }

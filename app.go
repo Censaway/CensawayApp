@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -22,7 +23,7 @@ import (
 //go:embed dll/wintun.dll
 var wintunDll []byte
 
-const AppVersion = "v1.3.1"
+const AppVersion = "v1.3.2"
 
 type Subscription struct {
 	ID        string `json:"id"`
@@ -47,6 +48,7 @@ type MixedProfile struct {
 }
 
 type Settings struct {
+	Language      string     `json:"language"`
 	RoutingMode   string     `json:"routing_mode"`
 	RunMode       string     `json:"run_mode"`
 	MixedPort     int        `json:"mixed_port"`
@@ -96,6 +98,7 @@ func NewApp() *App {
 		Subscriptions: []Subscription{},
 		MixedProfiles: []MixedProfile{},
 		Settings: Settings{
+			Language:    "en",
 			RoutingMode: "smart",
 			RunMode:     "tun",
 			MixedPort:   2080,
@@ -226,6 +229,18 @@ func (a *App) getGeoIpPath() string  { return filepath.Join(a.getAppDataDir(), "
 func (a *App) getSrsPath() string    { return filepath.Join(a.getAppDataDir(), "geoip-ru.srs") }
 func (a *App) GetAppVersion() string { return AppVersion }
 
+func (a *App) getHttpClientForPortal() *http.Client {
+	return &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			Proxy: func(_ *http.Request) (*url.URL, error) {
+				return nil, nil
+			},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+}
+
 func (a *App) GetPortalServers(profileID string) []PortalServer {
 	var profile *Profile
 	for _, p := range a.Profiles {
@@ -242,32 +257,32 @@ func (a *App) GetPortalServers(profileID string) []PortalServer {
 	if err != nil {
 		return []PortalServer{}
 	}
-	
+
 	uuid := u.User.Username()
 	host := u.Hostname()
-	
+
 	apiURL := fmt.Sprintf("https://%s/api/portal/servers", host)
-	
-	client := &http.Client{Timeout: 5 * time.Second}
+
+	client := a.getHttpClientForPortal()
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		a.log("Portal Request Error: " + err.Error())
 		return []PortalServer{}
 	}
 	req.Header.Set("X-Client-UUID", uuid)
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		a.log("Portal Connect Error: " + err.Error())
 		return []PortalServer{}
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		a.log(fmt.Sprintf("Portal Error: %d", resp.StatusCode))
 		return []PortalServer{}
 	}
-	
+
 	var servers []PortalServer
 	json.NewDecoder(resp.Body).Decode(&servers)
 	return servers
@@ -285,30 +300,57 @@ func (a *App) SetPortalRouting(profileID string, tag string) string {
 		return "Profile not found"
 	}
 
+	a.cmdLock.Lock()
+	isRunning := a.proxyCmd != nil
+	runMode := a.Settings.RunMode
+	a.cmdLock.Unlock()
+
+	shouldRestart := isRunning && runMode == "tun"
+
+	if shouldRestart {
+		a.log("Stopping TUN for portal update...")
+		a.StopVless()
+		time.Sleep(300 * time.Millisecond)
+	}
+
 	u, err := url.Parse(profile.Key)
 	if err != nil {
+		if shouldRestart {
+			a.StartVless(profile.Key)
+		}
 		return "Invalid link"
 	}
-	
+
 	uuid := u.User.Username()
 	host := u.Hostname()
 	apiURL := fmt.Sprintf("https://%s/api/portal/routing", host)
 
 	payload := map[string]string{
 		"uuid": uuid,
-		"tag": tag,
+		"tag":  tag,
 	}
 	jsonData, _ := json.Marshal(payload)
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := a.getHttpClientForPortal()
 	resp, err := client.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+	
+	var resultMsg string
 	if err != nil {
-		return "Connection failed"
+		resultMsg = "Error: " + err.Error()
+	} else {
+		defer resp.Body.Close()
+		if resp.StatusCode == 200 {
+			resultMsg = "OK"
+		} else {
+			body, _ := io.ReadAll(resp.Body)
+			resultMsg = fmt.Sprintf("Failed: %d %s", resp.StatusCode, string(body))
+		}
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode == 200 {
-		return "OK"
+	if shouldRestart {
+		a.log("Restoring TUN connection...")
+		a.StartVless(profile.Key)
 	}
-	return "Failed to update"
+
+	return resultMsg
 }

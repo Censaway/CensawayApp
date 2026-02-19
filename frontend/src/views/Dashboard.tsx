@@ -19,6 +19,7 @@ import { main } from "../../wailsjs/go/models";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { EditProfileModal } from "../components/EditProfileModal";
 import { useAppStore, UIProfile } from "../store/appStore";
+import { useTranslation } from "../hooks/useTranslation";
 
 export const Dashboard: React.FC = () => {
   const {
@@ -38,6 +39,7 @@ export const Dashboard: React.FC = () => {
     setCurrentIp,
     setTraffic,
   } = useAppStore();
+  const { t } = useTranslation();
 
   const [isAdding, setIsAdding] = useState(false);
   const [addType, setAddType] = useState<"key" | "sub">("key");
@@ -157,15 +159,15 @@ export const Dashboard: React.FC = () => {
         (p: UIProfile) => p.id === selectedId,
       );
       if (!currentProfile) {
-        setStatus("Select profile");
+        setStatus(t("dashboard.select_profile"));
         return;
       }
       setConnectionState("connecting");
-      setStatus("Starting...");
+      setStatus(t("dashboard.starting"));
       const res = await StartVless(currentProfile.key);
       if (res === "Connected") {
         setConnectionState("connected");
-        setStatus("Secured");
+        setStatus(t("dashboard.secured"));
         setCurrentIp(null);
       } else {
         setConnectionState("disconnected");
@@ -173,9 +175,9 @@ export const Dashboard: React.FC = () => {
         setErrorMsg(res);
       }
     } else {
-      setStatus("Stopping...");
+      setStatus(t("dashboard.stopping"));
       await StopVless();
-      setStatus("Disconnected");
+      setStatus(t("dashboard.disconnected"));
       setConnectionState("disconnected");
       setTraffic({ up: 0, down: 0 });
       setCurrentIp(null);
@@ -185,14 +187,14 @@ export const Dashboard: React.FC = () => {
   const handleSelectProfile = async (id: string) => {
     setSelectedId(id);
     if (connectionState === "connected") {
-      setStatus("Switching...");
+      setStatus(t("dashboard.switching"));
       await StopVless();
       const profile = profiles.find((p: UIProfile) => p.id === id);
       if (profile) {
         const res = await StartVless(profile.key);
         if (res === "Connected") {
           setConnectionState("connected");
-          setStatus("Secured");
+          setStatus(t("dashboard.secured"));
           setCurrentIp(null);
         } else {
           setConnectionState("disconnected");
@@ -242,14 +244,14 @@ export const Dashboard: React.FC = () => {
 
   const applyRouting = async (tag: string) => {
     if(!routingTargetId) return;
-    setStatus("Updating Route...");
+    setStatus(t("dashboard.updating_route"));
     const res = await SetPortalRouting(routingTargetId, tag);
     if(res === "OK") {
         setIsRoutingModalOpen(false);
-        setStatus("Route Updated");
+        setStatus(t("dashboard.route_updated"));
     } else {
         setErrorMsg(res);
-        setStatus(isRunning ? "Connected" : "Disconnected");
+        setStatus(isRunning ? t("dashboard.connected") : t("dashboard.disconnected"));
     }
   };
 
@@ -308,7 +310,7 @@ export const Dashboard: React.FC = () => {
         <button
             onClick={(e) => handleOpenRouting(e, profile.id)}
             className="text-gray-400 hover:text-indigo-400 p-1.5 rounded-md hover:bg-indigo-500/10 transition-colors relative z-20"
-            title="Select Exit Node"
+            title={t("dashboard.select_exit")}
         >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -369,10 +371,10 @@ export const Dashboard: React.FC = () => {
             className={`absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r transition-all duration-700 ${isRunning ? "from-green-400 via-emerald-400 to-transparent" : "from-purple-500 via-pink-500 to-transparent"}`}
           ></div>
           <div className="flex justify-between items-center text-gray-500 text-[10px] font-bold tracking-widest uppercase">
-            <span>Status</span>
+            <span>{t("dashboard.status")}</span>
             <div className="flex items-center gap-2 bg-black/20 px-2 py-1 rounded-full border border-white/5">
               <span className={isRunning ? "text-green-400" : "text-gray-400"}>
-                {isRunning ? "SECURE" : "IDLE"}
+                {isRunning ? t("dashboard.secure") : t("dashboard.idle")}
               </span>
               <div
                 className={`w-1.5 h-1.5 rounded-full ${isRunning ? "bg-green-400 shadow-[0_0_8px_#4ade80]" : "bg-red-500/50"}`}
@@ -414,7 +416,7 @@ export const Dashboard: React.FC = () => {
               <h2
                 className={`text-3xl font-bold tracking-tight transition-colors duration-500 ${isRunning ? "text-white" : "text-gray-200"}`}
               >
-                {isRunning ? "Connected" : "Disconnected"}
+                {isRunning ? t("dashboard.connected") : t("dashboard.disconnected")}
               </h2>
 
               <div className="h-8 flex items-center justify-center mt-2 mb-4">
@@ -458,7 +460,7 @@ export const Dashboard: React.FC = () => {
                         d="M19 14l-7 7m0 0l-7-7m7 7V3"
                       />
                     </svg>
-                    DOWN
+                    {t("dashboard.speed_down")}
                   </div>
                   <div className="text-sm font-mono font-bold text-white whitespace-nowrap">
                     {formatSpeed(traffic.down)}
@@ -479,7 +481,7 @@ export const Dashboard: React.FC = () => {
                         d="M5 10l7-7m0 0l7 7m-7-7v18"
                       />
                     </svg>
-                    UP
+                    {t("dashboard.speed_up")}
                   </div>
                   <div className="text-sm font-mono font-bold text-white whitespace-nowrap">
                     {formatSpeed(traffic.up)}
@@ -493,7 +495,7 @@ export const Dashboard: React.FC = () => {
         <div className="glass w-80 rounded-3xl p-6 flex flex-col relative">
           <div className="flex justify-between items-center pb-4 border-b border-white/5 mb-5">
             <span className="text-gray-400 text-[10px] font-bold tracking-widest uppercase">
-              Servers
+              {t("dashboard.servers")}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -564,7 +566,7 @@ export const Dashboard: React.FC = () => {
                     ref={inputRef}
                     type="text"
                     placeholder={
-                      addType === "key" ? "vless://..." : "https://..."
+                      addType === "key" ? t("dashboard.key_placeholder") : "https://..."
                     }
                     value={inputVal}
                     onChange={(e) => setInputVal(e.target.value)}
@@ -576,7 +578,7 @@ export const Dashboard: React.FC = () => {
                     disabled={isProcessing}
                     className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-[10px] font-bold py-2 rounded-lg transition-colors active:scale-95"
                   >
-                    {isProcessing ? "PROCESSING..." : "ADD"}
+                    {isProcessing ? t("dashboard.processing") : t("dashboard.add")}
                   </button>
                 </div>
               </div>
@@ -587,7 +589,7 @@ export const Dashboard: React.FC = () => {
             {manualProfiles.length > 0 && (
               <div className="mb-4 animate-slideIn">
                 <div className="text-[9px] font-bold text-gray-600 uppercase mb-2 px-1">
-                  Manual
+                  {t("dashboard.manual")}
                 </div>
                 {manualProfiles.map(renderProfileItem)}
               </div>
@@ -644,7 +646,7 @@ export const Dashboard: React.FC = () => {
             ))}
             {profiles.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-gray-700 text-xs text-center border-2 border-dashed border-white/5 rounded-xl">
-                <span>No servers</span>
+                <span>{t("dashboard.no_servers")}</span>
               </div>
             )}
           </div>
@@ -653,8 +655,8 @@ export const Dashboard: React.FC = () => {
 
       <ConfirmationModal
         isOpen={!!subToDelete}
-        title="Delete Subscription"
-        message="Are you sure you want to delete this subscription? All associated profiles will be removed."
+        title={t("dashboard.delete_sub_title")}
+        message={t("dashboard.delete_sub_msg")}
         onClose={() => setSubToDelete(null)}
         onConfirm={confirmDeleteSub}
       />
@@ -670,13 +672,13 @@ export const Dashboard: React.FC = () => {
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]" onClick={() => setIsRoutingModalOpen(false)}>
               <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 w-80 shadow-[0_0_50px_-10px_rgba(0,0,0,0.8)] animate-[scaleIn_0.2s_ease-out]" onClick={e => e.stopPropagation()}>
                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-white font-bold text-sm">Select Exit Node</h3>
+                    <h3 className="text-white font-bold text-sm">{t("dashboard.select_exit")}</h3>
                     <button onClick={() => setIsRoutingModalOpen(false)} className="text-gray-500 hover:text-white">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                  </div>
                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
-                    {availableServers.length === 0 && <div className="text-gray-500 text-xs text-center py-4">Loading available servers...</div>}
+                    {availableServers.length === 0 && <div className="text-gray-500 text-xs text-center py-4">{t("dashboard.loading_servers")}</div>}
                     {availableServers.map(s => (
                         <button key={s.tag} onClick={() => applyRouting(s.tag)} className="w-full text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-gray-200 flex justify-between items-center transition-colors group">
                             <span>{s.name}</span>

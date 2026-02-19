@@ -44,18 +44,27 @@ func (a *App) onTrayReady(ctx context.Context) {
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "Exit app")
 
-	chanConnect := make(chan struct{})
-	chanShow := make(chan struct{})
-	chanQuit := make(chan struct{})
+	chanConnect := make(chan struct{}, 1)
+	chanShow := make(chan struct{}, 1)
+	chanQuit := make(chan struct{}, 1)
 
 	mConnect.Click(func() {
-		go func() { chanConnect <- struct{}{} }()
+		select {
+		case chanConnect <- struct{}{}:
+		default:
+		}
 	})
 	mShow.Click(func() {
-		go func() { chanShow <- struct{}{} }()
+		select {
+		case chanShow <- struct{}{}:
+		default:
+		}
 	})
 	mQuit.Click(func() {
-		go func() { chanQuit <- struct{}{} }()
+		select {
+		case chanQuit <- struct{}{}:
+		default:
+		}
 	})
 
 	go func() {

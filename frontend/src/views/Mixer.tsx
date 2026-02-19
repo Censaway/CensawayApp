@@ -10,6 +10,7 @@ import {
 import { main } from "../../wailsjs/go/models";
 import { useAppStore } from "../store/appStore";
 import { CustomSelect } from "../components/CustomSelect";
+import { useTranslation } from "../hooks/useTranslation";
 
 export const MixerView: React.FC = () => {
   const {
@@ -23,10 +24,11 @@ export const MixerView: React.FC = () => {
     selectedId,
     setSelectedId,
   } = useAppStore();
+  const { t } = useTranslation();
   const [mixedProfiles, setMixedProfiles] = useState<main.MixedProfile[]>([]);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  
   const [editId, setEditId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
+  const [editName, setEditName] = useState(t("mixer.new_chain"));
   const [relayId, setRelayId] = useState("");
   const [exitId, setExitId] = useState("");
 
@@ -45,12 +47,11 @@ export const MixerView: React.FC = () => {
     }
   };
 
-  const handleCreate = () => {
+  const resetForm = () => {
     setEditId(null);
-    setEditName("New Chain");
+    setEditName(t("mixer.new_chain"));
     setRelayId("");
     setExitId("");
-    setIsEditorOpen(true);
   };
 
   const handleEdit = (m: main.MixedProfile) => {
@@ -58,7 +59,6 @@ export const MixerView: React.FC = () => {
     setEditName(m.name);
     setRelayId(m.relay_id);
     setExitId(m.exit_id);
-    setIsEditorOpen(true);
   };
 
   const handleSave = async () => {
@@ -77,14 +77,15 @@ export const MixerView: React.FC = () => {
     } else {
       await CreateMixedProfile(editName, relayId, exitId);
     }
-    setIsEditorOpen(false);
+    resetForm();
     loadMixed();
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm("Delete this chain?")) {
+    if (confirm(t("mixer.delete_confirm"))) {
       await DeleteMixedProfile(id);
+      if (editId === id) resetForm();
       loadMixed();
     }
   };
@@ -94,14 +95,14 @@ export const MixerView: React.FC = () => {
 
     if (isRunning) {
       if (selectedId === mixerId) {
-        setStatus("Stopping...");
+        setStatus(t("dashboard.stopping"));
         await StopVless();
-        setStatus("Disconnected");
+        setStatus(t("dashboard.disconnected"));
         setConnectionState("disconnected");
         setTraffic({ up: 0, down: 0 });
         setCurrentIp(null);
       } else {
-        setStatus("Switching...");
+        setStatus(t("dashboard.switching"));
         await StopVless();
         startMixer(mixerId);
       }
@@ -113,11 +114,11 @@ export const MixerView: React.FC = () => {
   const startMixer = async (id: string) => {
     setSelectedId(id);
     setConnectionState("connecting");
-    setStatus("Starting Chain...");
+    setStatus(t("mixer.starting_chain"));
     const res = await StartVless(id);
     if (res === "Connected") {
       setConnectionState("connected");
-      setStatus("Secured (Chain)");
+      setStatus(t("mixer.secured_chain"));
       setCurrentIp(null);
     } else {
       setConnectionState("disconnected");
@@ -132,33 +133,28 @@ export const MixerView: React.FC = () => {
   }));
 
   return (
-    <div className="w-full max-w-5xl h-[520px] flex gap-6 animate-[fadeIn_0.3s_ease-out]">
+    <div className="flex w-full max-w-5xl h-[520px] gap-6 animate-[fadeIn_0.3s_ease-out]">
       <div className="glass flex-1 rounded-3xl p-8 border-t border-white/10 flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">
-              Chain Mixer
+              {t("mixer.title")}
             </h2>
             <p className="text-[10px] text-gray-500 mt-1">
-              Route: You &rarr; Relay &rarr; Exit &rarr; Internet
+              {t("mixer.desc")}
             </p>
           </div>
-          <button
-            onClick={handleCreate}
-            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-purple-500/20 transition-all active:scale-95"
-          >
-            CREATE CHAIN
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-1 scrollbar-hide space-y-3">
           {mixedProfiles.length === 0 && (
             <div className="h-40 flex flex-col items-center justify-center text-gray-600 text-xs border-2 border-dashed border-white/5 rounded-xl">
-              No chains created
+              {t("mixer.no_chains")}
             </div>
           )}
           {mixedProfiles.map((m) => {
             const isActive = isRunning && selectedId === `mixed://${m.id}`;
+            const isEditing = editId === m.id;
             const relayName =
               profiles.find((p) => p.id === m.relay_id)?.name || "Unknown";
             const exitName =
@@ -167,7 +163,8 @@ export const MixerView: React.FC = () => {
             return (
               <div
                 key={m.id}
-                className={`p-4 rounded-xl border transition-all flex justify-between items-center group ${isActive ? "bg-purple-500/10 border-purple-500/30" : "bg-white/5 border-transparent hover:bg-white/10"}`}
+                onClick={() => handleEdit(m)}
+                className={`p-4 rounded-xl border transition-all flex justify-between items-center cursor-pointer group ${isEditing ? "bg-white/10 border-white/20" : "bg-white/5 border-transparent hover:bg-white/10"} ${isActive ? "bg-purple-500/10 border-purple-500/30" : ""}`}
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -203,7 +200,10 @@ export const MixerView: React.FC = () => {
 
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => handleRun(m)}
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        handleRun(m);
+                    }}
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isActive ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-green-500/10 text-green-400 hover:bg-green-500/20"}`}
                   >
                     {isActive ? (
@@ -243,24 +243,6 @@ export const MixerView: React.FC = () => {
                     )}
                   </button>
                   <button
-                    onClick={() => handleEdit(m)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      />
-                    </svg>
-                  </button>
-                  <button
                     onClick={(e) => handleDelete(e, m.id)}
                     className="p-2 rounded-lg bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
                   >
@@ -285,19 +267,17 @@ export const MixerView: React.FC = () => {
         </div>
       </div>
 
-      <div
-        className={`glass w-80 rounded-3xl p-6 border-t border-white/10 flex flex-col transition-all duration-300 ${isEditorOpen ? "translate-x-0 opacity-100" : "translate-x-10 opacity-50 pointer-events-none grayscale"}`}
-      >
+      <div className="glass w-80 rounded-3xl p-6 border-t border-white/10 flex flex-col">
         <div className="mb-6">
           <h3 className="text-sm font-bold text-white">
-            {editId ? "Edit Chain" : "New Chain"}
+            {editId ? t("mixer.edit_chain") : t("mixer.new_chain")}
           </h3>
         </div>
 
         <div className="space-y-6 flex-1">
           <div>
             <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1 block">
-              Name
+              {t("mixer.name")}
             </label>
             <input
               type="text"
@@ -313,7 +293,7 @@ export const MixerView: React.FC = () => {
             <div className="mb-4">
               <label className="text-[9px] font-bold text-purple-400 uppercase tracking-wider mb-1.5 ml-1 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                Relay Node (Entry)
+                {t("mixer.relay")}
               </label>
               <CustomSelect
                 value={relayId}
@@ -322,14 +302,14 @@ export const MixerView: React.FC = () => {
                 className="w-full"
               />
               <p className="text-[9px] text-gray-600 mt-1 ml-1">
-                Traffic connects here first
+                {t("mixer.relay_desc")}
               </p>
             </div>
 
             <div>
               <label className="text-[9px] font-bold text-white uppercase tracking-wider mb-1.5 ml-1 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                Exit Node (Final)
+                {t("mixer.exit")}
               </label>
               <CustomSelect
                 value={exitId}
@@ -338,24 +318,26 @@ export const MixerView: React.FC = () => {
                 className="w-full"
               />
               <p className="text-[9px] text-gray-600 mt-1 ml-1">
-                Traffic exits to internet here
+                {t("mixer.exit_desc")}
               </p>
             </div>
           </div>
         </div>
 
         <div className="mt-4 flex gap-3">
-          <button
-            onClick={() => setIsEditorOpen(false)}
-            className="flex-1 py-2 rounded-xl text-[10px] font-bold bg-white/5 hover:bg-white/10 text-gray-400"
-          >
-            CANCEL
-          </button>
+          {editId && (
+              <button
+                onClick={resetForm}
+                className="flex-1 py-2 rounded-xl text-[10px] font-bold bg-white/5 hover:bg-white/10 text-gray-400"
+              >
+                {t("dashboard.cancel")}
+              </button>
+          )}
           <button
             onClick={handleSave}
             className="flex-1 py-2 rounded-xl text-[10px] font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-500/20"
           >
-            SAVE CHAIN
+            {editId ? t("mixer.save_changes") : t("mixer.create")}
           </button>
         </div>
       </div>

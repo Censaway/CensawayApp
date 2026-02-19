@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { VlessConfig, parseVless, buildVless } from "../utils/vless";
 import { CustomSelect } from "./CustomSelect";
+import { useTranslation } from "../hooks/useTranslation";
 
 interface Props {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export const EditProfileModal: React.FC<Props> = ({
   const [config, setConfig] = useState<VlessConfig | null>(null);
   const [rawKey, setRawKey] = useState(initialKey);
   const [mode, setMode] = useState<"visual" | "raw">("visual");
+  const { t } = useTranslation();
 
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -177,20 +179,20 @@ export const EditProfileModal: React.FC<Props> = ({
                 />
               </svg>
             </div>
-            Edit Server
+            {t("editor.title_edit")}
           </h3>
           <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
             <button
               onClick={() => setMode("visual")}
               className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${mode === "visual" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
             >
-              VISUAL
+              {t("editor.visual")}
             </button>
             <button
               onClick={() => setMode("raw")}
               className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${mode === "raw" ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
             >
-              RAW
+              {t("editor.raw")}
             </button>
           </div>
         </div>
@@ -205,7 +207,7 @@ export const EditProfileModal: React.FC<Props> = ({
         >
           <div ref={contentRef}>
             <div className="mb-4">
-              <Field label="Display Name" value={name} onChange={setName} />
+              <Field label={t("editor.name")} value={name} onChange={setName} />
             </div>
 
             <div key={mode} className="animate-[fadeIn_0.3s_ease-out]">
@@ -214,31 +216,31 @@ export const EditProfileModal: React.FC<Props> = ({
                   <div className="grid grid-cols-3 gap-3">
                     <Field
                       className="col-span-2"
-                      label="Address"
+                      label={t("editor.address")}
                       value={config.address}
                       onChange={(v: string) => updateConfig("address", v)}
                     />
                     <Field
-                      label="Port"
+                      label={t("editor.port")}
                       value={config.port}
                       onChange={(v: string) => updateConfig("port", v)}
                     />
                   </div>
                   <Field
-                    label="UUID"
+                    label={t("editor.uuid")}
                     value={config.uuid}
                     onChange={(v: string) => updateConfig("uuid", v)}
                   />
 
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField
-                      label="Security"
+                      label={t("editor.security")}
                       value={config.security}
                       onChange={(v: string) => updateConfig("security", v)}
                       options={securityOptions}
                     />
                     <SelectField
-                      label="Flow"
+                      label={t("editor.flow")}
                       value={config.flow}
                       onChange={(v: string) => updateConfig("flow", v)}
                       options={flowOptions}
@@ -249,16 +251,16 @@ export const EditProfileModal: React.FC<Props> = ({
                     config.security === "tls") && (
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-3 animate-[fadeIn_0.3s_ease-out]">
                       <div className="text-[10px] font-bold text-purple-400 mb-2 uppercase tracking-widest">
-                        TLS / Reality Settings
+                        {t("editor.tls_settings")}
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <Field
-                          label="SNI"
+                          label={t("editor.sni")}
                           value={config.sni}
                           onChange={(v: string) => updateConfig("sni", v)}
                         />
                         <SelectField
-                          label="Fingerprint"
+                          label={t("editor.fingerprint")}
                           value={config.fp}
                           onChange={(v: string) => updateConfig("fp", v)}
                           options={fpOptions}
@@ -267,12 +269,12 @@ export const EditProfileModal: React.FC<Props> = ({
                       {config.security === "reality" && (
                         <>
                           <Field
-                            label="Public Key (pbk)"
+                            label={t("editor.pbk")}
                             value={config.pbk}
                             onChange={(v: string) => updateConfig("pbk", v)}
                           />
                           <Field
-                            label="Short ID (sid)"
+                            label={t("editor.sid")}
                             value={config.sid}
                             onChange={(v: string) => updateConfig("sid", v)}
                           />
@@ -283,22 +285,22 @@ export const EditProfileModal: React.FC<Props> = ({
 
                   <div className="bg-white/5 rounded-xl p-4 border border-white/5 space-y-3">
                     <div className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">
-                      Transport
+                      {t("editor.transport")}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <SelectField
-                        label="Type"
+                        label={t("editor.type")}
                         value={config.type}
                         onChange={(v: string) => updateConfig("type", v)}
                         options={typeOptions}
                       />
                       <Field
-                        label="Path / Service Name"
+                        label={t("editor.path")}
                         value={config.path}
                         onChange={(v: string) => updateConfig("path", v)}
                       />
                       <Field
-                        label="Host Header"
+                        label={t("editor.host")}
                         value={config.host}
                         onChange={(v: string) => updateConfig("host", v)}
                       />
@@ -308,7 +310,7 @@ export const EditProfileModal: React.FC<Props> = ({
               ) : (
                 <div>
                   <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1 block">
-                    VLESS Key
+                    {t("editor.vless_key")}
                   </label>
                   <textarea
                     value={rawKey}
@@ -327,13 +329,13 @@ export const EditProfileModal: React.FC<Props> = ({
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl text-[10px] font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-transparent transition-all"
           >
-            CANCEL
+            {t("editor.cancel")}
           </button>
           <button
             onClick={handleSave}
             className="flex-1 py-2.5 rounded-xl text-[10px] font-bold text-white bg-purple-600 hover:bg-purple-500 shadow-[0_0_15px_-5px_rgba(168,85,247,0.5)] transition-all active:scale-95"
           >
-            SAVE CHANGES
+            {t("editor.save")}
           </button>
         </div>
       </div>

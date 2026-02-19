@@ -95,6 +95,7 @@ export namespace main {
 	    }
 	}
 	export class Settings {
+	    language: string;
 	    routing_mode: string;
 	    run_mode: string;
 	    mixed_port: number;
@@ -109,6 +110,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.language = source["language"];
 	        this.routing_mode = source["routing_mode"];
 	        this.run_mode = source["run_mode"];
 	        this.mixed_port = source["mixed_port"];
