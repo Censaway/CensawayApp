@@ -18,6 +18,7 @@ export const RoutingView: React.FC = () => {
     profiles,
     setConnectionState,
     setStatus,
+    setErrorMsg,
   } = useAppStore();
   const { t } = useTranslation();
 
@@ -43,10 +44,36 @@ export const RoutingView: React.FC = () => {
   }, []);
 
   const update = async (changes: Partial<main.Settings>) => {
+    const prevSettings = settings;
+    const prevRunningSettings = runningSettings;
     const newS = new main.Settings({ ...settings, ...changes });
     setSettings(newS);
-    await SaveSettings(newS);
+    try {
+      const saveResult = await SaveSettings(newS);
+      if (saveResult !== "Saved") {
+        setSettings(prevSettings);
+        setRunningSettings(prevRunningSettings);
+        setErrorMsg(saveResult);
+        return;
+      }
+    } catch (e) {
+      setSettings(prevSettings);
+      setRunningSettings(prevRunningSettings);
+      setErrorMsg(String(e));
+      return;
+    }
     if (!isRunning) setRunningSettings(newS);
+  };
+
+  const resolveCurrentTarget = (): string | null => {
+    if (!selectedId) {
+      return null;
+    }
+    if (selectedId.startsWith("mixed://")) {
+      return selectedId;
+    }
+    const currentProfile = profiles.find((p: UIProfile) => p.id === selectedId);
+    return currentProfile ? currentProfile.key : null;
   };
 
   const handleRestart = async () => {
@@ -54,9 +81,9 @@ export const RoutingView: React.FC = () => {
     setStatus(t("dashboard.starting"));
     setConnectionState("connecting");
     await StopVless();
-    const currentProfile = profiles.find((p: UIProfile) => p.id === selectedId);
-    if (currentProfile) {
-      const res = await StartVless(currentProfile.key);
+    const target = resolveCurrentTarget();
+    if (target) {
+      const res = await StartVless(target);
       if (res === "Connected") {
         setConnectionState("connected");
         setStatus(t("dashboard.secured"));

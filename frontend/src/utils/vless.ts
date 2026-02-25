@@ -12,7 +12,11 @@ export interface VlessConfig {
   fp: string;
   path: string;
   host: string;
+  panelSecret: string;
 }
+
+export const normalizePanelSecret = (value: string): string =>
+  value.trim().replace(/^\/+|\/+$/g, "");
 
 export const parseVless = (link: string): VlessConfig | null => {
   try {
@@ -35,6 +39,12 @@ export const parseVless = (link: string): VlessConfig | null => {
       fp: params.get("fp") || "",
       path: params.get("path") || "",
       host: params.get("host") || "",
+      panelSecret: normalizePanelSecret(
+        params.get("panel_secret") ||
+          params.get("ps") ||
+          params.get("portal_secret") ||
+          "",
+      ),
     };
   } catch (e) {
     console.error("VLESS Parse Error", e);
@@ -55,9 +65,27 @@ export const buildVless = (c: VlessConfig): string => {
   if (c.fp) params.append("fp", c.fp);
   if (c.path) params.append("path", c.path);
   if (c.host) params.append("host", c.host);
+  const normalizedSecret = normalizePanelSecret(c.panelSecret);
+  if (normalizedSecret) params.append("panel_secret", normalizedSecret);
 
   link += params.toString();
   if (c.name) link += `#${encodeURIComponent(c.name)}`;
 
   return link;
+};
+
+export const getPanelSecretFromVless = (link: string): string => {
+  try {
+    if (!link.startsWith("vless://")) return "";
+    const u = new URL(link);
+    const params = u.searchParams;
+    return normalizePanelSecret(
+      params.get("panel_secret") ||
+        params.get("ps") ||
+        params.get("portal_secret") ||
+        "",
+    );
+  } catch {
+    return "";
+  }
 };

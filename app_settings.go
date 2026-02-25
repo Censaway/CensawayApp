@@ -3,17 +3,51 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"reflect"
+	"runtime"
 )
+
+const settingsFileMode os.FileMode = 0600
+const defaultMixedPort = 2080
+
+func defaultRunMode() string {
+	if runtime.GOOS == "darwin" {
+		return "proxy"
+	}
+	return "tun"
+}
+
+func normalizeSettingsDefaults(s Settings) Settings {
+	if s.Language != "en" && s.Language != "ru" {
+		s.Language = "en"
+	}
+	if s.RoutingMode != "smart" && s.RoutingMode != "global" {
+		s.RoutingMode = "smart"
+	}
+	if s.RunMode != "tun" && s.RunMode != "proxy" {
+		s.RunMode = defaultRunMode()
+	}
+	if s.MixedPort < 1 || s.MixedPort > 65535 {
+		s.MixedPort = defaultMixedPort
+	}
+	if len(s.RuDomains) == 0 {
+		s.RuDomains = append([]string{}, defaultRuDomains...)
+	}
+	if s.UserRules == nil {
+		s.UserRules = []UserRule{}
+	}
+	return s
+}
 
 func (a *App) LoadSettings() Settings {
 	data, err := os.ReadFile(a.getSettingsPath())
-	
+
 	if os.IsNotExist(err) {
 		a.Settings = Settings{
 			Language:    "en",
 			RoutingMode: "smart",
-			RunMode:     "tun",
-			MixedPort:   2080,
+			RunMode:     defaultRunMode(),
+			MixedPort:   defaultMixedPort,
 			RuDomains:   defaultRuDomains,
 			UserRules:   []UserRule{},
 		}
@@ -32,32 +66,14 @@ func (a *App) LoadSettings() Settings {
 		return a.Settings
 	}
 
-	updated := false
-	if a.Settings.Language == "" {
-		a.Settings.Language = "en"
-		updated = true
+	normalized := normalizeSettingsDefaults(a.Settings)
+	// Existing macOS users may have persisted TUN from older defaults.
+	// Keep app usable for non-elevated launches by migrating to proxy mode.
+	if runtime.GOOS == "darwin" && os.Geteuid() != 0 && normalized.RunMode == "tun" {
+		normalized.RunMode = "proxy"
 	}
-	if a.Settings.RoutingMode == "" {
-		a.Settings.RoutingMode = "smart"
-		updated = true
-	}
-	if a.Settings.RunMode == "" {
-		a.Settings.RunMode = "tun"
-		updated = true
-	}
-	if a.Settings.MixedPort == 0 {
-		a.Settings.MixedPort = 2080
-		updated = true
-	}
-	if len(a.Settings.RuDomains) == 0 {
-		a.Settings.RuDomains = defaultRuDomains
-		updated = true
-	}
-	if a.Settings.UserRules == nil {
-		a.Settings.UserRules = []UserRule{}
-		updated = true
-	}
-
+	updated := !reflect.DeepEqual(a.Settings, normalized)
+	a.Settings = normalized
 	if updated {
 		a.SaveSettings(a.Settings)
 	}
@@ -66,23 +82,32 @@ func (a *App) LoadSettings() Settings {
 }
 
 func (a *App) SaveSettings(s Settings) string {
-	a.Settings = s
+	if s.MixedPort < 1 || s.MixedPort > 65535 {
+		return "Invalid mixed port: must be 1-65535"
+	}
+
+	normalized := normalizeSettingsDefaults(s)
+	a.Settings = normalized
 	data, err := json.MarshalIndent(a.Settings, "", "  ")
 	if err != nil {
 		return "Error"
 	}
-	
-	err = os.WriteFile(a.getSettingsPath(), data, 0666)
+
+	err = os.WriteFile(a.getSettingsPath(), data, settingsFileMode)
 	if err != nil {
 		return "Write Failed: " + err.Error()
 	}
-	
-	os.Chmod(a.getSettingsPath(), 0666)
 
-	if s.AutoConnect {
-		a.EnableAutostart()
+	if normalized.AutoConnect {
+		if err := a.EnableAutostart(); err != nil {
+			a.log("Autostart enable failed: " + err.Error())
+			return "Autostart enable failed: " + err.Error()
+		}
 	} else {
-		a.DisableAutostart()
+		if err := a.DisableAutostart(); err != nil && !os.IsNotExist(err) {
+			a.log("Autostart disable failed: " + err.Error())
+			return "Autostart disable failed: " + err.Error()
+		}
 	}
 
 	return "Saved"

@@ -20,6 +20,7 @@ import { ConfirmationModal } from "../components/ConfirmationModal";
 import { EditProfileModal } from "../components/EditProfileModal";
 import { useAppStore, UIProfile } from "../store/appStore";
 import { useTranslation } from "../hooks/useTranslation";
+import { getPanelSecretFromVless } from "../utils/vless";
 
 export const Dashboard: React.FC = () => {
   const {
@@ -53,6 +54,7 @@ export const Dashboard: React.FC = () => {
   const [isRoutingModalOpen, setIsRoutingModalOpen] = useState(false);
   const [availableServers, setAvailableServers] = useState<any[]>([]);
   const [routingTargetId, setRoutingTargetId] = useState<string | null>(null);
+  const [isLoadingServers, setIsLoadingServers] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -70,29 +72,46 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let timer: number;
-    if (isRunning && !currentIp) {
-      const fetchIp = async () => {
-        try {
-          const ip = await GetProxyIP();
-          if (ip) setCurrentIp(ip);
-        } catch (e) {}
-      };
+    let timer: number | undefined;
+
+    const fetchIp = async () => {
+      try {
+        const ip = await GetProxyIP();
+        setCurrentIp(ip || null);
+      } catch (e) {
+        setCurrentIp(null);
+      }
+    };
+
+    if (isRunning) {
       setTimeout(fetchIp, 500);
-      timer = setInterval(fetchIp, 30000);
-    } else if (!isRunning) {
+      timer = window.setInterval(fetchIp, 30000);
+    } else {
       setCurrentIp(null);
     }
-    return () => clearInterval(timer);
-  }, [isRunning, currentIp]);
+
+    return () => {
+      if (timer !== undefined) {
+        window.clearInterval(timer);
+      }
+    };
+  }, [isRunning]);
 
   const loadSubs = async () => {
-    const subs = await GetSubscriptions();
-    setSubscriptions(subs || []);
+    try {
+      const subs = await GetSubscriptions();
+      setSubscriptions(subs || []);
+    } catch (e) {
+      setErrorMsg(String(e));
+    }
   };
   const refreshProfiles = async () => {
-    const list = await GetProfiles();
-    setProfiles((list || []) as UIProfile[]);
+    try {
+      const list = await GetProfiles();
+      setProfiles((list || []) as UIProfile[]);
+    } catch (e) {
+      setErrorMsg(String(e));
+    }
   };
 
   const formatSpeed = (bytes: number) => {
@@ -113,24 +132,47 @@ export const Dashboard: React.FC = () => {
   const handleAdd = async () => {
     if (!inputVal) return;
     setIsProcessing(true);
-    if (addType === "key") {
-      await AddProfile(inputVal);
-    } else {
-      await CreateSubscription(inputVal);
-      await loadSubs();
+    try {
+      if (addType === "key") {
+        const res = await AddProfile(inputVal.trim());
+        if (res !== "OK") {
+          setErrorMsg(res);
+          return;
+        }
+      } else {
+        const res = await CreateSubscription(inputVal.trim());
+        if (!res.startsWith("Updated:")) {
+          setErrorMsg(res);
+          return;
+        }
+        await loadSubs();
+      }
+
+      setInputVal("");
+      setIsAdding(false);
+      await refreshProfiles();
+    } catch (e) {
+      setErrorMsg(String(e));
+    } finally {
+      setIsProcessing(false);
     }
-    setInputVal("");
-    setIsProcessing(false);
-    setIsAdding(false);
-    refreshProfiles();
   };
 
   const handleUpdateSub = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setUpdatingSubId(id);
-    await UpdateSubscription(id);
-    await refreshProfiles();
-    setUpdatingSubId(null);
+    try {
+      const res = await UpdateSubscription(id);
+      if (!res.startsWith("Updated:")) {
+        setErrorMsg(res);
+      } else {
+        await refreshProfiles();
+      }
+    } catch (e) {
+      setErrorMsg(String(e));
+    } finally {
+      setUpdatingSubId(null);
+    }
   };
   const requestDeleteSub = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -138,18 +180,30 @@ export const Dashboard: React.FC = () => {
   };
   const confirmDeleteSub = async () => {
     if (subToDelete) {
-      await DeleteSubscription(subToDelete);
-      await loadSubs();
-      await refreshProfiles();
-      setSubToDelete(null);
+      try {
+        await DeleteSubscription(subToDelete);
+        await loadSubs();
+        await refreshProfiles();
+        setSubToDelete(null);
+      } catch (e) {
+        setErrorMsg(String(e));
+      }
     }
   };
 
   const handleSaveProfile = async (name: string, key: string) => {
     if (profileToEdit) {
-      await UpdateProfile(profileToEdit.id, name, key);
-      refreshProfiles();
-      setProfileToEdit(null);
+      try {
+        const res = await UpdateProfile(profileToEdit.id, name, key);
+        if (res !== "OK") {
+          setErrorMsg(res);
+          return;
+        }
+        await refreshProfiles();
+        setProfileToEdit(null);
+      } catch (e) {
+        setErrorMsg(String(e));
+      }
     }
   };
 
@@ -207,8 +261,12 @@ export const Dashboard: React.FC = () => {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    await DeleteProfile(id);
-    refreshProfiles();
+    try {
+      await DeleteProfile(id);
+      await refreshProfiles();
+    } catch (e) {
+      setErrorMsg(String(e));
+    }
   };
 
   const checkPings = async (e: React.MouseEvent) => {
@@ -232,13 +290,16 @@ export const Dashboard: React.FC = () => {
     e.stopPropagation();
     setRoutingTargetId(profileId);
     setAvailableServers([]);
+    setIsLoadingServers(true);
     setIsRoutingModalOpen(true);
     
     try {
         const servers = await GetPortalServers(profileId);
         setAvailableServers(servers);
     } catch(e) {
-        console.error(e);
+        setErrorMsg(String(e));
+    } finally {
+        setIsLoadingServers(false);
     }
   };
 
@@ -307,15 +368,17 @@ export const Dashboard: React.FC = () => {
       </div>
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
         <div className="absolute inset-0 bg-[#0a0a0e]/80 backdrop-blur-md rounded-lg -z-10 scale-110"></div>
-        <button
-            onClick={(e) => handleOpenRouting(e, profile.id)}
-            className="text-gray-400 hover:text-indigo-400 p-1.5 rounded-md hover:bg-indigo-500/10 transition-colors relative z-20"
-            title={t("dashboard.select_exit")}
-        >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </button>
+        {getPanelSecretFromVless(profile.key) && (
+          <button
+              onClick={(e) => handleOpenRouting(e, profile.id)}
+              className="text-gray-400 hover:text-indigo-400 p-1.5 rounded-md hover:bg-indigo-500/10 transition-colors relative z-20"
+              title={t("dashboard.select_exit")}
+          >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -678,7 +741,8 @@ export const Dashboard: React.FC = () => {
                     </button>
                  </div>
                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
-                    {availableServers.length === 0 && <div className="text-gray-500 text-xs text-center py-4">{t("dashboard.loading_servers")}</div>}
+                    {isLoadingServers && <div className="text-gray-500 text-xs text-center py-4">{t("dashboard.loading_servers")}</div>}
+                    {!isLoadingServers && availableServers.length === 0 && <div className="text-gray-500 text-xs text-center py-4">{t("dashboard.no_servers")}</div>}
                     {availableServers.map(s => (
                         <button key={s.tag} onClick={() => applyRouting(s.tag)} className="w-full text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-gray-200 flex justify-between items-center transition-colors group">
                             <span>{s.name}</span>

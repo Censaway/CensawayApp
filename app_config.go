@@ -210,7 +210,21 @@ func (a *App) parseVlessToOutbound(link string, tag string) (map[string]interfac
 	q := u.Query()
 	uuid := u.User.Username()
 	host := u.Hostname()
-	port, _ := strconv.Atoi(u.Port())
+	if uuid == "" {
+		return nil, fmt.Errorf("bad link: missing uuid")
+	}
+	if host == "" {
+		return nil, fmt.Errorf("bad link: missing host")
+	}
+
+	port := 443
+	if portStr := u.Port(); portStr != "" {
+		parsedPort, err := strconv.Atoi(portStr)
+		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
+			return nil, fmt.Errorf("bad link: invalid port")
+		}
+		port = parsedPort
+	}
 
 	transportType := q.Get("type")
 	if transportType == "" {

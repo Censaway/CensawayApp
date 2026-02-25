@@ -33,7 +33,7 @@ func (a *App) SaveProfiles() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.getProfilesPath(), data, 0644)
+	return os.WriteFile(a.getProfilesPath(), data, 0600)
 }
 
 func (a *App) AddProfile(vlessLink string) string {
@@ -50,7 +50,9 @@ func (a *App) AddProfile(vlessLink string) string {
 	}
 	name, _ = url.QueryUnescape(name)
 	a.Profiles = append(a.Profiles, Profile{ID: uuid.New().String(), Name: name, Key: vlessLink, CreatedAt: time.Now().Unix()})
-	a.SaveProfiles()
+	if err := a.SaveProfiles(); err != nil {
+		return "Save failed: " + err.Error()
+	}
 	return "OK"
 }
 
@@ -62,18 +64,26 @@ func (a *App) DeleteProfile(id string) []Profile {
 		}
 	}
 	a.Profiles = newP
-	a.SaveProfiles()
+	if err := a.SaveProfiles(); err != nil {
+		a.log("Failed to save profiles after delete: " + err.Error())
+	}
+	a.invalidateLastProfileIfMissing()
 	return a.Profiles
 }
 
 func (a *App) GetProfiles() []Profile { return a.LoadProfiles() }
 
 func (a *App) ImportSubscription(subUrl string) string {
-	resp, err := http.Get(subUrl)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(subUrl)
 	if err != nil {
 		return "Error: " + err.Error()
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Sprintf("Error: HTTP %d", resp.StatusCode)
+	}
+
 	body, _ := io.ReadAll(resp.Body)
 	decoded, err := base64.StdEncoding.DecodeString(string(body))
 	if err != nil {

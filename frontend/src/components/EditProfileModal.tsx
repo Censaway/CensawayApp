@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { VlessConfig, parseVless, buildVless } from "../utils/vless";
+import {
+  VlessConfig,
+  parseVless,
+  buildVless,
+  normalizePanelSecret,
+} from "../utils/vless";
 import { CustomSelect } from "./CustomSelect";
 import { useTranslation } from "../hooks/useTranslation";
 
@@ -146,6 +151,10 @@ export const EditProfileModal: React.FC<Props> = ({
     if (config) setConfig({ ...config, [field]: val });
   };
 
+  const normalizedPanelSecret = config
+    ? normalizePanelSecret(config.panelSecret)
+    : "";
+
   if (!shouldRender) return null;
 
   return (
@@ -231,6 +240,23 @@ export const EditProfileModal: React.FC<Props> = ({
                     value={config.uuid}
                     onChange={(v: string) => updateConfig("uuid", v)}
                   />
+                  <Field
+                    label={t("editor.panel_secret")}
+                    value={config.panelSecret}
+                    placeholder={t("editor.panel_secret_placeholder")}
+                    onChange={(v: string) => updateConfig("panelSecret", v)}
+                  />
+
+                  {normalizedPanelSecret && config.address && (
+                    <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        {t("editor.portal_url")}
+                      </div>
+                      <div className="text-[10px] text-gray-300 font-mono break-all">
+                        {`https://${config.address}/${normalizedPanelSecret}/api/user-portal`}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField

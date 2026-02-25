@@ -82,7 +82,10 @@ func (a *App) StartVless(vlessLink string) string {
 	}
 
 	configPath := filepath.Join(workDir, "config.json")
-	os.WriteFile(configPath, []byte(configJSON), 0644)
+	if err := os.WriteFile(configPath, []byte(configJSON), 0600); err != nil {
+		a.log("Config write error: " + err.Error())
+		return "Config write error: " + err.Error()
+	}
 
 	cmd := exec.Command(binPath, "run", "-c", configPath, "-D", workDir)
 	cmd.Dir = workDir
@@ -101,6 +104,7 @@ func (a *App) StartVless(vlessLink string) string {
 	a.cmdLock.Lock()
 	a.proxyCmd = cmd
 	a.cmdLock.Unlock()
+	a.saveCoreProcessInfo(cmd.Process.Pid, binPath)
 	a.updateTrayState(true)
 
 	var logWg sync.WaitGroup
@@ -155,6 +159,7 @@ func (a *App) StartVless(vlessLink string) string {
 
 		if a.proxyCmd != nil {
 			a.proxyCmd = nil
+			a.clearCoreProcessInfo()
 
 			msg := "Core process stopped unexpected"
 			if err != nil {
@@ -183,6 +188,8 @@ func (a *App) StartVless(vlessLink string) string {
 	if a.Settings.RunMode == "proxy" {
 		if err := a.setSystemProxy(true, a.Settings.MixedPort); err != nil {
 			a.log("Failed to set system proxy: " + err.Error())
+			a.StopVless()
+			return "Failed to set system proxy: " + err.Error()
 		}
 	}
 
@@ -204,6 +211,7 @@ func (a *App) StopVless() string {
 	a.cmdLock.Unlock()
 
 	if cmd == nil || cmd.Process == nil {
+		a.clearCoreProcessInfo()
 		return "Not running"
 	}
 
@@ -212,6 +220,7 @@ func (a *App) StopVless() string {
 
 	go func() {
 		defer a.shutdownWg.Done()
+		defer a.clearCoreProcessInfo()
 
 		if err := cmd.Process.Kill(); err != nil {
 			a.log("Failed to kill process by PID: " + err.Error())

@@ -3,10 +3,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -48,7 +50,14 @@ func (a *App) DisableAutostart() error {
 	}
 	defer k.Close()
 
-	return k.DeleteValue("CensawayApp")
+	err = k.DeleteValue("CensawayApp")
+	if err == nil ||
+		errors.Is(err, registry.ErrNotExist) ||
+		errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) ||
+		errors.Is(err, syscall.ERROR_PATH_NOT_FOUND) {
+		return nil
+	}
+	return err
 }
 
 func (a *App) platformInit() error {
@@ -56,12 +65,49 @@ func (a *App) platformInit() error {
 }
 
 func (a *App) cleanupZombies() {
-	cmd := exec.Command("taskkill", "/F", "/IM", "sing-box.exe")
+	info, err := a.loadCoreProcessInfo()
+	if err != nil {
+		a.log("Failed to read core process info: " + err.Error())
+		return
+	}
+	if info == nil {
+		return
+	}
+	if info.PID <= 0 {
+		a.clearCoreProcessInfo()
+		return
+	}
+	if !windowsPIDLooksLikeSingBox(info.PID) {
+		a.clearCoreProcessInfo()
+		return
+	}
+
+	cmd := exec.Command("taskkill", "/F", "/PID", strconv.Itoa(info.PID))
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: 0x08000000,
 	}
 	_ = cmd.Run()
+	a.clearCoreProcessInfo()
+}
+
+func windowsPIDLooksLikeSingBox(pid int) bool {
+	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000,
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	line := strings.ToLower(strings.TrimSpace(string(out)))
+	if line == "" || strings.Contains(line, "no tasks are running") {
+		return false
+	}
+
+	return strings.Contains(line, "sing-box.exe")
 }
 
 func (a *App) ensurePermissions(binPath string) error {
@@ -71,14 +117,14 @@ func (a *App) ensurePermissions(binPath string) error {
 
 	if !a.checkAdmin() {
 		a.log("Admin rights missing for TUN mode. Requesting elevation...")
-		
+
 		err := a.runMeElevated()
 		if err != nil {
 			return fmt.Errorf("failed to elevate: %v", err)
 		}
-		
+
 		os.Exit(0)
-		return nil 
+		return nil
 	}
 	return nil
 }

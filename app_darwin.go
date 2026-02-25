@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"text/template"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -17,7 +19,34 @@ func (a *App) configureCmd(cmd *exec.Cmd) {
 }
 
 func (a *App) cleanupZombies() {
-	exec.Command("pkill", "sing-box").Run()
+	info, err := a.loadCoreProcessInfo()
+	if err != nil {
+		a.log("Failed to read core process info: " + err.Error())
+		return
+	}
+	if info == nil {
+		return
+	}
+	if info.PID <= 0 {
+		a.clearCoreProcessInfo()
+		return
+	}
+
+	if info.BinPath != "" && !darwinProcessMatchesBinary(info.PID, info.BinPath) {
+		a.clearCoreProcessInfo()
+		return
+	}
+
+	_ = exec.Command("kill", "-9", strconv.Itoa(info.PID)).Run()
+	a.clearCoreProcessInfo()
+}
+
+func darwinProcessMatchesBinary(pid int, binPath string) bool {
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "command=").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.TrimSpace(string(out)), binPath)
 }
 
 func (a *App) platformInit() error {
@@ -88,22 +117,24 @@ func (a *App) ensurePermissions(binPath string) error {
 	exec.Command("xattr", "-d", "com.apple.quarantine", binPath).Run()
 
 	info, err := os.Stat(binPath)
-	if err == nil {
-		if (info.Mode() & os.ModeSetuid) != 0 {
-			return nil
+	if err != nil {
+		return fmt.Errorf("failed to stat core binary: %v", err)
+	}
+
+	// Hardening: never keep setuid bit on a binary under user-controlled path.
+	if (info.Mode() & os.ModeSetuid) != 0 {
+		cleanMode := info.Mode() &^ os.ModeSetuid
+		if err := os.Chmod(binPath, cleanMode); err != nil {
+			return fmt.Errorf("refusing setuid binary and failed to clear setuid bit: %v", err)
+		}
+		if a.ctx != nil {
+			wailsRuntime.EventsEmit(a.ctx, "log", "Removed legacy setuid bit from core binary")
 		}
 	}
 
-	if a.ctx != nil {
-		wailsRuntime.EventsEmit(a.ctx, "log", "Requesting admin rights (osascript)...")
+	if os.Geteuid() != 0 {
+		return fmt.Errorf("administrator privileges required for TUN mode on macOS")
 	}
 
-	cmdStr := fmt.Sprintf("chown root:admin \\\"%s\\\" && chmod +s \\\"%s\\\"", binPath, binPath)
-	script := fmt.Sprintf("do shell script \"%s\" with administrator privileges", cmdStr)
-
-	err = exec.Command("osascript", "-e", script).Run()
-	if err != nil {
-		return fmt.Errorf("failed to set SUID: %v", err)
-	}
 	return nil
 }

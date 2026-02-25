@@ -24,7 +24,7 @@ func (a *App) SaveMixedProfiles() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.getMixedProfilesPath(), data, 0644)
+	return os.WriteFile(a.getMixedProfilesPath(), data, 0600)
 }
 
 func (a *App) CreateMixedProfile(name string, relayID string, exitID string) string {
@@ -40,7 +40,9 @@ func (a *App) CreateMixedProfile(name string, relayID string, exitID string) str
 	}
 
 	a.MixedProfiles = append(a.MixedProfiles, newMix)
-	a.SaveMixedProfiles()
+	if err := a.SaveMixedProfiles(); err != nil {
+		return "Save failed: " + err.Error()
+	}
 	return "OK"
 }
 
@@ -52,7 +54,9 @@ func (a *App) DeleteMixedProfile(id string) {
 		}
 	}
 	a.MixedProfiles = newMix
-	a.SaveMixedProfiles()
+	if err := a.SaveMixedProfiles(); err != nil {
+		a.log("Failed to save mixed profiles after delete: " + err.Error())
+	}
 }
 
 func (a *App) UpdateMixedProfile(id string, name string, relayID string, exitID string) string {
@@ -61,7 +65,9 @@ func (a *App) UpdateMixedProfile(id string, name string, relayID string, exitID 
 			a.MixedProfiles[i].Name = name
 			a.MixedProfiles[i].RelayID = relayID
 			a.MixedProfiles[i].ExitID = exitID
-			a.SaveMixedProfiles()
+			if err := a.SaveMixedProfiles(); err != nil {
+				return "Save failed: " + err.Error()
+			}
 			return "OK"
 		}
 	}

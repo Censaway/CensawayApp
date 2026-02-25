@@ -6,10 +6,12 @@ import (
 	"flag"
 	_ "image/png"
 	"log"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	linuxOptions "github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -19,6 +21,14 @@ var assets embed.FS
 
 //go:embed build/appicon.png
 var icon []byte
+
+func singleInstanceID() string {
+	const baseID = "e4b6c3a2-1111-4b5c-9999-censaway-app-v1"
+	if os.Getenv("devserver") != "" {
+		return baseID + "-dev"
+	}
+	return baseID
+}
 
 func main() {
 	trayStart := flag.Bool("tray", false, "Start minimized in tray")
@@ -50,7 +60,7 @@ func main() {
 		Frameless:       true,
 		CSSDragProperty: "--wails-draggable",
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId: "e4b6c3a2-1111-4b5c-9999-censaway-app-v1",
+			UniqueId: singleInstanceID(),
 			OnSecondInstanceLaunch: func(secondInstanceData options.SecondInstanceData) {
 				if app.ctx != nil {
 					runtime.WindowUnminimise(app.ctx)
@@ -62,6 +72,11 @@ func main() {
 		},
 		Bind: []interface{}{
 			app,
+		},
+		Linux: &linuxOptions.Options{
+			Icon:             icon,
+			ProgramName:      "censawayapp",
+			WebviewGpuPolicy: linuxOptions.WebviewGpuPolicyNever,
 		},
 		Windows: &windows.Options{
 			WebviewIsTransparent: false,

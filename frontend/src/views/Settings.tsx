@@ -21,6 +21,7 @@ export const SettingsView: React.FC = () => {
     profiles,
     setConnectionState,
     setStatus,
+    setErrorMsg,
     appVersion,
   } = useAppStore();
   const { t } = useTranslation();
@@ -32,21 +33,43 @@ export const SettingsView: React.FC = () => {
       : false;
 
   const update = async (changes: Partial<main.Settings>) => {
+    const prevSettings = settings;
+    const prevRunningSettings = runningSettings;
     const newS = new main.Settings({ ...settings, ...changes });
     setSettings(newS);
-    await SaveSettings(newS);
+    try {
+      const saveResult = await SaveSettings(newS);
+      if (saveResult !== "Saved") {
+        setSettings(prevSettings);
+        setRunningSettings(prevRunningSettings);
+        setErrorMsg(saveResult);
+        return;
+      }
+    } catch (e) {
+      setSettings(prevSettings);
+      setRunningSettings(prevRunningSettings);
+      setErrorMsg(String(e));
+      return;
+    }
 
-    // FIX: Если меняется язык, обновляем runningSettings сразу,
-    // чтобы не появлялся баннер о перезагрузке (так как язык не влияет на ядро).
     if (changes.language && runningSettings) {
       setRunningSettings(
         new main.Settings({ ...runningSettings, language: changes.language }),
       );
-    }
-    // Для остальных настроек обновляем runningSettings только если VPN выключен.
-    else if (!isRunning) {
+    } else if (!isRunning) {
       setRunningSettings(newS);
     }
+  };
+
+  const resolveCurrentTarget = (): string | null => {
+    if (!selectedId) {
+      return null;
+    }
+    if (selectedId.startsWith("mixed://")) {
+      return selectedId;
+    }
+    const currentProfile = profiles.find((p: UIProfile) => p.id === selectedId);
+    return currentProfile ? currentProfile.key : null;
   };
 
   const handleRestart = async () => {
@@ -54,9 +77,9 @@ export const SettingsView: React.FC = () => {
     setStatus(t("dashboard.starting"));
     setConnectionState("connecting");
     await StopVless();
-    const currentProfile = profiles.find((p: UIProfile) => p.id === selectedId);
-    if (currentProfile) {
-      const res = await StartVless(currentProfile.key);
+    const target = resolveCurrentTarget();
+    if (target) {
+      const res = await StartVless(target);
       if (res === "Connected") {
         setConnectionState("connected");
         setStatus(t("dashboard.secured"));
@@ -80,7 +103,6 @@ export const SettingsView: React.FC = () => {
         </h2>
 
         <div className="space-y-8">
-          {/* Language Selector */}
           <div>
             <div className="text-sm font-medium text-white mb-3">
               {t("settings.language")}
@@ -197,10 +219,17 @@ export const SettingsView: React.FC = () => {
                     </div>
                     <input
                       type="number"
+                      min={1}
+                      max={65535}
                       value={settings.mixed_port}
-                      onChange={(e) =>
-                        update({ mixed_port: parseInt(e.target.value) || 0 })
-                      }
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        if (raw === "") return;
+                        const parsed = Number(raw);
+                        if (Number.isNaN(parsed)) return;
+                        const safePort = Math.min(65535, Math.max(1, Math.floor(parsed)));
+                        update({ mixed_port: safePort });
+                      }}
                       className="w-24 bg-black/40 border border-white/10 rounded-lg py-2 pl-6 pr-3 text-right text-sm text-emerald-400 font-mono outline-none focus:border-emerald-500/50 focus:bg-black/60 transition-all [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="2080"
                     />
